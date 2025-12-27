@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bitwarden Duplicates Inspector</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f3f4f6;
+      --bg-card: #ffffff;
+      --border: #6b7280;
+      --text: #111827;
+      --muted: #6b7280;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --accent-contrast: #ffffff;
+      --danger: #dc2626;
+      --danger-soft: #fee2e2;
+      --badge-bg: #e5e7eb;
+      --badge-border: #9ca3af;
+      --badge-text: #374151;
+      --header-bg: #f9fafb;
+      --icon-color: #555;
+      --btn-text-color: #111827;
+      --checkbox-bg: #ffffff;
+      --checkbox-border: #6b7280;
+      --checkbox-checked-bg: #2563eb;
+      --checkbox-check: #ffffff;
+      --row-merged-bg: rgba(37, 99, 235, 0.15);
+      --row-deleted-bg: rgba(220, 38, 38, 0.15);
+      --row-survivor-bg: rgba(16, 185, 129, 0.35);
+    }
+
+    body.theme-dark {
+      color-scheme: dark;
+      --bg: #020617;
+      --bg-card: #020617;
+      --border: #9ca3af;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #3b82f6;
+      --accent-soft: #1e3a8a;
+      --accent-contrast: #f9fafb;
+      --danger: #ef4444;
+      --danger-soft: #7f1d1d;
+      --badge-bg: #111827;
+      --badge-border: #4b5563;
+      --badge-text: #d1d5db;
+      --header-bg: #020617;
+      --icon-color: #e5e7eb;
+      --btn-text-color: #f9fafb;
+      --checkbox-bg: #020617;
+      --checkbox-border: #9ca3af;
+      --checkbox-checked-bg: #3b82f6;
+      --checkbox-check: #f9fafb;
+      --row-merged-bg: rgba(59, 130, 246, 0.2);
+      --row-deleted-bg: rgba(239, 68, 68, 0.2);
+      --row-survivor-bg: rgba(16, 185, 129, 0.2);
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+                   sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.4;
+      overflow: hidden;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      margin-bottom: 0.25rem;
+      text-align: center;
+    }
+
+    #themeToggleBtn {
+      position: fixed;
+      top: 10px;
+      right: 16px;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      transition: background-color 0.2s;
+      z-index: 50;
+    }
+
+    #themeToggleBtn:hover {
+      background: var(--badge-bg);
+    }
+
+    #themeToggleBtn svg {
+      width: 20px;
+      height: 20px;
+      fill: var(--icon-color);
+      display: block;
+    }
+
+    #themeToggleBtn .icon-moon {
+      display: none;
+    }
+
+    body.theme-dark #themeToggleBtn .icon-sun {
+      display: none;
+    }
+
+    body.theme-dark #themeToggleBtn .icon-moon {
+      display: block;
+    }
+
+    #top-area {
+      flex: 0 0 auto;
+      padding: 16px 16px 0 16px;
+      background: var(--bg);
+      z-index: 10;
+      border-bottom: 1px solid transparent;
+    }
+
+    #controls {
+      margin-bottom: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .controls-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .controls-row-left,
+    .controls-row-right {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #searchWrapper {
+      position: relative;
+      width: 100%;
+      display: none;
+    }
+
+    #filterInput {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 36px 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    #filterInput:focus {
+      outline: 2px solid var(--accent);
+      border-color: transparent;
+    }
+
+    #clearSearchBtn {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      display: none;
+    }
+
+    #clearSearchBtn:hover {
+      color: var(--text);
+    }
+
+    .btn {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      cursor: pointer;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      font-weight: 600;
+      color: var(--btn-text-color);
+    }
+
+    .btn-primary { background: var(--accent); border-color: var(--accent); }
+    .btn-secondary { background: var(--badge-bg); }
+    .btn-danger { background: var(--danger); border-color: var(--danger); }
+
+    .btn-merge-group {
+      background: #2563eb !important;
+      border-color: #2563eb !important;
+      color: #ffffff !important;
+    }
+
+    .btn-merge-group.btn-merge-active {
+      background: #2563eb !important;
+      color: #ffffff !important;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    .file-label { cursor: pointer; }
+    .file-label input { display: none; }
+
+    #status {
+      font-size: 0.85rem;
+      margin-top: 0.25rem;
+      color: var(--muted);
+    }
+
+    #status.error { color: var(--danger); }
+
+    #summary {
+      font-size: 0.9rem;
+      margin: 0.8rem 0 0.4rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    #summary strong { font-weight: 600; }
+
+    .hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+    }
+
+    #groups {
+      margin-top: 0.2rem;
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 16px 16px 16px;
+    }
+
+    .group {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 8px 8px;
+      margin-bottom: 10px;
+      background: var(--bg-card);
+    }
+
+    .group-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: flex-start;
+      margin-bottom: 4px;
+      font-size: 1.2rem;
+    }
+
+    .group-header-main {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .group-header-site {
+      font-weight: 600;
+    }
+
+    .group-header-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .meta-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .meta-line .username {
+      
+    }
+
+    .meta-line .count { opacity: 0.8; }
+
+    .group-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 6px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      border: 1px solid var(--badge-border);
+      background: var(--badge-bg);
+      color: var(--badge-text);
+    }
+
+    .tag-fav { border-color: #f39c12; color: #fbbf24; }
+    .tag-no-login { border-style: dashed; }
+
+    .tag-merge {
+      border-color: #2563eb;
+      color: #2563eb;
+      background: rgba(37, 99, 235, 0.08);
+    }
+
+    .tag-deleted {
+      border-color: var(--danger);
+      color: var(--danger);
+      background: rgba(220, 38, 38, 0.08);
+    }
+
+    .tag-selected {
+      border-color: var(--border);
+      color: var(--muted);
+      background: rgba(148, 163, 184, 0.1);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 5px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      border: 1px solid var(--badge-border);
+      background: var(--badge-bg);
+      color: var(--badge-text);
+      margin-right: 4px;
+    }
+
+    .badge-id {
+      display: block;
+      margin-top: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                   "Liberation Mono", "Courier New", monospace;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      table-layout: fixed;
+      margin-top: 2px;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 3px 4px;
+      vertical-align: top;
+      word-wrap: break-word;
+      word-break: break-word;
+    }
+
+    th {
+      background: var(--header-bg);
+      font-weight: 700;
+    }
+
+    .row-merged {
+      background-color: var(--row-merged-bg) !important;
+    }
+
+    .row-deleted {
+      background-color: var(--row-deleted-bg) !important;
+    }
+
+    .row-survivor {
+      background-color: var(--row-survivor-bg) !important;
+    }
+
+    .preview-container {
+      margin-top: 10px;
+      padding-top: 10px;
+      position: relative;
+    }
+
+    .preview-arrow {
+      text-align: center;
+      font-size: 1.2rem;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    .col-select { width: 40px; text-align: center; }
+    .col-name   { width: 20%; }
+    .col-dates  { width: 20%; }
+    .col-uris   { width: 27%; }
+    .col-notes  { width: 27%; }
+
+    .uri-list {
+      margin: 0;
+      padding-left: 14px;
+    }
+
+    .uri-list li { margin: 0; }
+
+    details summary {
+      cursor: pointer;
+      list-style: none;
+      outline: none;
+    }
+
+    details summary::-webkit-details-marker { display: none; }
+
+    details summary::before {
+      content: "▶ ";
+      font-size: 0.7rem;
+    }
+
+    details[open] summary::before {
+      content: "▼ ";
+    }
+
+    pre {
+      white-space: pre-wrap;
+      margin: 0.25rem 0 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                   "Liberation Mono", "Courier New", monospace;
+    }
+
+    .note-empty { opacity: 0.5; }
+
+    input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      margin: 0;
+      border-radius: 3px;
+      border: 1px solid var(--checkbox-border);
+      background: var(--checkbox-bg);
+      display: inline-block;
+      position: relative;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+
+    input[type="checkbox"]:checked {
+      background: var(--checkbox-checked-bg);
+      border-color: var(--checkbox-checked-bg);
+    }
+
+    input[type="checkbox"]::after {
+      content: "";
+      position: absolute;
+      display: none;
+      left: 3px;
+      top: 1px;
+      width: 5px;
+      height: 8px;
+      border: 2px solid var(--checkbox-check);
+      border-top: 0;
+      border-left: 0;
+      transform: rotate(45deg);
+      box-sizing: border-box;
+    }
+
+    input[type="checkbox"]:checked::after { display: block; }
+
+    #selectAllGroupsBtn,
+    #mergeAllGroupsBtn,
+    .file-label {
+      background: #4b5563;
+      border-color: #374151;
+    }
+
+    .btn-select-group {
+      background: #4b5563;
+      border-color: #374151;
+    }
+
+    #selectAllGroupsBtn,
+    #mergeAllGroupsBtn,
+    #deleteSelectedBtn,
+    #downloadBtn,
+    .btn-select-group,
+    .btn-delete-group,
+    .file-label {
+      color: #ffffff !important;
+    }
+
+    .toggle-wrapper {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      margin-right: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .controls-top {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .controls-row-right { justify-content: flex-start; }
+      th, td { font-size: 0.75rem; }
+    }
+  </style>
+</head>
+<body>
+  <button id="themeToggleBtn" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+    </svg>
+  </button>
+
+  <div id="top-area">
+    <h1>Bitwarden Duplicates Inspector</h1>
+
+    <div id="controls">
+      <div class="controls-top">
+        <div class="controls-row-left">
+          <label class="btn btn-secondary file-label">
+            <span id="fileLabelText">Choose file</span>
+            <input type="file" id="fileInput" accept=".json,application/json" />
+          </label>
+        </div>
+
+        <div class="controls-row-right">
+          <label class="toggle-wrapper">
+            <input type="checkbox" id="previewToggle" />
+            Enable result previews
+          </label>
+
+          <button id="selectAllGroupsBtn" class="btn btn-secondary" disabled>
+            Select all entries in all groups
+          </button>
+
+          <button id="mergeAllGroupsBtn" class="btn btn-secondary" disabled>
+            Merge all entries in all groups
+          </button>
+
+          <button id="deleteSelectedBtn" class="btn btn-danger" disabled>
+            Mark selected for deletion
+          </button>
+          <button id="downloadBtn" class="btn btn-primary" disabled>
+            Download updated export
+          </button>
+        </div>
+      </div>
+      
+      <div id="searchWrapper">
+        <input type="text" id="filterInput" placeholder="Filter by URL or username..." />
+        <button id="clearSearchBtn" aria-label="Clear search">&times;</button>
+      </div>
+    </div>
+
+    <div id="status"></div>
+    <div id="summary"></div>
+    <div class="hint" id="hint"></div>
+  </div>
+
+  <div id="groups"></div>
+
+  <script>
+    let vaultData = null;
+    let items = [];
+    let duplicateGroups = [];
+    let selectedItems = new Set();
+    let itemsToMerge = new Set();
+    let itemsToDelete = new Set();
+    let showPreviews = false;
+
+    const fileInput = document.getElementById("fileInput");
+    const fileLabelText = document.getElementById("fileLabelText");
+    const filterInput = document.getElementById("filterInput");
+    const searchWrapper = document.getElementById("searchWrapper");
+    const clearSearchBtn = document.getElementById("clearSearchBtn");
+    const themeToggleBtn = document.getElementById("themeToggleBtn");
+    const selectAllGroupsBtn = document.getElementById("selectAllGroupsBtn");
+    const mergeAllGroupsBtn = document.getElementById("mergeAllGroupsBtn");
+    const deleteSelectedBtn = document.getElementById("deleteSelectedBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const previewToggle = document.getElementById("previewToggle");
+    const statusEl = document.getElementById("status");
+    const summaryEl = document.getElementById("summary");
+    const hintEl = document.getElementById("hint");
+    const groupsEl = document.getElementById("groups");
+
+    function setTheme(theme) {
+      const body = document.body;
+      if (theme === "dark") {
+        body.classList.add("theme-dark");
+      } else {
+        body.classList.remove("theme-dark");
+      }
+      localStorage.setItem("bwTheme", theme);
+    }
+
+    function initTheme() {
+      let saved = localStorage.getItem("bwTheme");
+      if (saved !== "light" && saved !== "dark") {
+        const prefersDark =
+          window.matchMedia &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+        saved = prefersDark ? "dark" : "light";
+      }
+      setTheme(saved);
+    }
+
+    initTheme();
+
+    themeToggleBtn.addEventListener("click", () => {
+      const isDark = document.body.classList.contains("theme-dark");
+      setTheme(isDark ? "light" : "dark");
+    });
+
+    function setStatus(msg, isError = false) {
+      statusEl.textContent = msg || "";
+      statusEl.className = isError ? "error" : "";
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function formatDate(str) {
+      if (!str) return "—";
+      const d = new Date(str);
+      if (isNaN(d.getTime())) return str;
+      return d.toLocaleString();
+    }
+
+    function isIPv4(host) {
+      return /^(\d{1,3}\.){3}\d{1,3}$/.test(host);
+    }
+
+    function parseHostPort(uri) {
+      uri = String(uri || "").trim();
+      if (!uri) return null;
+      let rest = uri.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//, "");
+      if (!rest) return null;
+      let hostPort = rest.split("/")[0];
+      hostPort = hostPort.split("@").slice(-1)[0].toLowerCase();
+      if (!hostPort) return null;
+      const parts = hostPort.split(":");
+      const host = parts[0];
+      const port = parts[1] || null;
+      if (!host.includes(".") && !isIPv4(host)) return null;
+      return { host, port };
+    }
+
+    function baseDomain(host) {
+      const parts = host.split(".");
+      if (parts.length <= 2) return host;
+      return parts.slice(-2).join(".");
+    }
+
+    function canonicalWebsiteKey(item) {
+      if (item.type !== 1) return null;
+      const login = item.login || {};
+      const usernameRaw = String(login.username || "").trim();
+      let host = null;
+      let port = null;
+
+      const uris = Array.isArray(login.uris) ? login.uris : [];
+      for (const u of uris) {
+        const parsed = parseHostPort(u && u.uri);
+        if (parsed && parsed.host) {
+          host = parsed.host;
+          port = parsed.port;
+          break;
+        }
+      }
+
+      if (!host && usernameRaw.includes("@")) {
+        const emailDomain = usernameRaw.split("@", 2)[1].toLowerCase();
+        if (emailDomain && emailDomain.includes(".")) {
+          host = emailDomain;
+          port = null;
+        }
+      }
+
+      if (!host) {
+        const name = String(item.name || "").trim();
+        const m = name.match(/([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+        if (m) host = m[1].toLowerCase();
+      }
+
+      if (!host) return null;
+
+      if (isIPv4(host)) {
+        return port ? host + ":" + port : host;
+      } else {
+        return host;
+      }
+    }
+
+    function computeDuplicateGroups() {
+      const map = new Map();
+      items.forEach((item, idx) => {
+        const siteKey = canonicalWebsiteKey(item);
+        if (!siteKey) return;
+        const login = item.login || {};
+        const usernameRaw = String(login.username || "").trim();
+        if (!usernameRaw) return;
+        const usernameLower = usernameRaw.toLowerCase();
+        const key = siteKey + "|||" + usernameLower;
+        if (!map.has(key)) {
+          map.set(key, {
+            site: siteKey,
+            usernameLower,
+            usernameRaw,
+            indices: []
+          });
+        }
+        map.get(key).indices.push(idx);
+      });
+
+      duplicateGroups = Array.from(map.values()).filter(g => g.indices.length > 1);
+
+      duplicateGroups.sort((a, b) => {
+        if (a.site !== b.site) return a.site < b.site ? -1 : 1;
+        if (a.usernameLower !== b.usernameLower) return a.usernameLower < b.usernameLower ? -1 : 1;
+        return b.indices.length - a.indices.length;
+      });
+
+      itemsToMerge = new Set();
+      selectedItems = new Set();
+      itemsToDelete = new Set();
+    }
+
+    function mergeSameAccountGroup(groupItems) {
+      if (!groupItems.length) throw new Error("mergeSameAccountGroup called with empty list");
+
+      function revKey(it) {
+        return it.creationDate || it.revisionDate || "";
+      }
+
+      let baseSrc = groupItems[0];
+      for (const it of groupItems) {
+        if (revKey(it) < revKey(baseSrc)) baseSrc = it;
+      }
+
+      const base = JSON.parse(JSON.stringify(baseSrc));
+      const allPasswords = new Set();
+      const urisSeen = new Set();
+      const notesChunks = [];
+
+      function collectUris(item) {
+        const login = item.login || {};
+        const uris = Array.isArray(login.uris) ? login.uris : [];
+        for (const u of uris) {
+          const key = String(u.match ?? "") + "::" + String(u.uri ?? "");
+          urisSeen.add(key);
+        }
+      }
+
+      for (const it of groupItems) {
+        const login = it.login || {};
+        const pw = login.password || "";
+        if (pw) allPasswords.add(pw);
+        const notes = (it.notes || "").trim();
+        if (notes) notesChunks.push(notes);
+        collectUris(it);
+        if (it.favorite) base.favorite = true;
+      }
+
+      const baseLogin = base.login || (base.login = {});
+      if (!Array.isArray(baseLogin.uris)) baseLogin.uris = [];
+
+      const existing = new Set(
+        baseLogin.uris.map(u => String(u.match ?? "") + "::" + String(u.uri ?? ""))
+      );
+      for (const key of urisSeen) {
+        if (!existing.has(key)) {
+          const [matchPart, uriPart] = key.split("::");
+          const matchVal = matchPart === "" ? null : matchPart;
+          baseLogin.uris.push({ match: matchVal, uri: uriPart });
+        }
+      }
+
+      const mergedNotes = [];
+      if (base.notes) mergedNotes.push(base.notes);
+      for (const n of notesChunks) {
+        if (n && !mergedNotes.includes(n)) mergedNotes.push(n);
+      }
+
+      if (allPasswords.size > 1) {
+        const basePw = baseLogin.password || "";
+        const extraPw = Array.from(allPasswords).filter(p => p && p !== basePw);
+        if (extraPw.length) {
+          mergedNotes.push(
+            "Additional passwords seen in merged entries: " +
+            extraPw.join(", ")
+          );
+        }
+      }
+
+      if (mergedNotes.length) base.notes = mergedNotes.join("\n\n---\n");
+
+      return base;
+    }
+
+    function websiteKeyForItem(item) {
+      return canonicalWebsiteKey(item);
+    }
+
+    function shareUrisWithinSite(itemsArr) {
+      const sites = new Map();
+      itemsArr.forEach(it => {
+        const siteKey = websiteKeyForItem(it);
+        if (!siteKey) return;
+        if (!sites.has(siteKey)) sites.set(siteKey, []);
+        sites.get(siteKey).push(it);
+      });
+
+      for (const [site, siteItems] of sites.entries()) {
+        const unionMap = new Map();
+
+        for (const it of siteItems) {
+          const login = it.login || {};
+          const uris = Array.isArray(login.uris) ? login.uris : [];
+          for (const u of uris) {
+            const key = String(u.match ?? "") + "::" + String(u.uri ?? "");
+            if (!unionMap.has(key)) {
+              unionMap.set(key, {
+                match: u.match ?? null,
+                uri: u.uri ?? ""
+              });
+            }
+          }
+        }
+
+        for (const it of siteItems) {
+          const login = it.login || (it.login = {});
+          if (!Array.isArray(login.uris)) login.uris = [];
+          const existing = new Set(
+            login.uris.map(u => String(u.match ?? "") + "::" + String(u.uri ?? ""))
+          );
+          for (const [key, val] of unionMap.entries()) {
+            if (!existing.has(key)) {
+              login.uris.push({ match: val.match, uri: val.uri });
+            }
+          }
+        }
+      }
+    }
+
+    function updateSelectAllGroupsBtnLabel() {
+      if (!duplicateGroups.length) {
+        selectAllGroupsBtn.textContent = "Select all entries in all groups";
+        selectAllGroupsBtn.disabled = true;
+        return;
+      }
+      let allIndices = [];
+      duplicateGroups.forEach(g => g.indices.forEach(i => allIndices.push(i)));
+      if (!allIndices.length) {
+        selectAllGroupsBtn.textContent = "Select all entries in all groups";
+        selectAllGroupsBtn.disabled = true;
+        return;
+      }
+      const allSelected = allIndices.every(i => selectedItems.has(i));
+      selectAllGroupsBtn.disabled = false;
+      selectAllGroupsBtn.textContent = allSelected ? "Unselect all entries in all groups" : "Select all entries in all groups";
+    }
+
+    function updateMergeAllGroupsBtnLabel() {
+      if (!duplicateGroups.length) {
+        mergeAllGroupsBtn.textContent = "Merge all entries in all groups";
+        mergeAllGroupsBtn.disabled = true;
+        return;
+      }
+      mergeAllGroupsBtn.disabled = false;
+      const allIndices = [];
+      duplicateGroups.forEach(g => g.indices.forEach(i => allIndices.push(i)));
+      
+      const allMerged = allIndices.every(i => itemsToMerge.has(i));
+      mergeAllGroupsBtn.textContent = allMerged
+        ? "Unmark all merges"
+        : "Merge all entries in all groups";
+    }
+    
+    function updateDeleteSelectedBtnLabel() {
+      if (!selectedItems.size) {
+        deleteSelectedBtn.textContent = "Mark selected for deletion";
+        deleteSelectedBtn.disabled = true;
+        return;
+      }
+      deleteSelectedBtn.disabled = false;
+      const allSelectedAreDeleted = Array.from(selectedItems).every(i => itemsToDelete.has(i));
+      if (allSelectedAreDeleted) {
+        deleteSelectedBtn.textContent = "Unmark selected for deletion";
+      } else {
+        deleteSelectedBtn.textContent = "Mark selected for deletion";
+      }
+    }
+
+    function generateGroupPreview(groupIndex) {
+      const g = duplicateGroups[groupIndex];
+      const indices = g.indices;
+      
+      const survivors = [];
+      const toMerge = [];
+      
+      indices.forEach(i => {
+        if (itemsToDelete.has(i)) return; 
+        if (itemsToMerge.has(i)) toMerge.push(items[i]);
+        else survivors.push(items[i]);
+      });
+
+      if (toMerge.length > 1) {
+        const merged = mergeSameAccountGroup(toMerge);
+        survivors.push(merged);
+      } else {
+        toMerge.forEach(it => survivors.push(it));
+      }
+
+      return survivors;
+    }
+
+    function renderItemRow(it, idx, isPreview = false, isSurvivor = false) {
+      const login = it.login || {};
+      const uris = Array.isArray(login.uris) ? login.uris : [];
+      const name = it.name || "";
+      const created = it.creationDate || "";
+      const revised = it.revisionDate || "";
+      const notes = it.notes || "";
+
+      let urisHtml = "";
+      if (uris.length === 0) {
+        urisHtml = "—";
+      } else {
+        urisHtml = "<ul class=\"uri-list\">" + uris.map(u => {
+          return "<li>" + escapeHtml(u.uri || "") + "</li>";
+        }).join("") + "</ul>";
+      }
+
+      let notesHtml = "";
+      if (!notes) {
+        notesHtml = `<span class="note-empty">—</span>`;
+      } else {
+        const short = notes.length > 120 ? notes.slice(0, 120) + "…" : notes;
+        notesHtml =
+          `<details><summary>${escapeHtml(short)}</summary>` +
+          `<pre>${escapeHtml(notes)}</pre></details>`;
+      }
+
+      const favTag = it.favorite ? `<span class="tag tag-fav">★ favorite</span>` : "";
+      const typeTag = it.type !== 1 ? `<span class="tag tag-no-login">type=${escapeHtml(String(it.type))}</span>` : "";
+
+      let rowClass = "";
+      let checkHtml = "";
+      
+      if (!isPreview) {
+        const isDeleted = itemsToDelete.has(idx);
+        const isMerged = itemsToMerge.has(idx);
+        const isSelected = selectedItems.has(idx);
+        
+        if (isDeleted) rowClass = "row-deleted";
+        else if (isMerged) rowClass = "row-merged";
+        else if (isSurvivor) rowClass = "row-survivor";
+        
+        const checkedAttr = isSelected ? "checked" : "";
+        checkHtml = `<td class="col-select" style="text-align:center;">
+          <input type="checkbox" class="item-select" data-index="${idx}" ${checkedAttr} />
+        </td>`;
+      } else {
+        checkHtml = `<td class="col-select" style="text-align:center; color: var(--muted); font-weight:600;">Final Result</td>`;
+      }
+
+      return `<tr class="${rowClass}" data-item-index="${idx}">
+        ${checkHtml}
+        <td class="col-name">
+          ${escapeHtml(name || "(no name)")}
+          ${favTag}${typeTag}
+          <span class="badge badge-id">id: ${escapeHtml(it.id || "new")}</span>
+        </td>
+        <td class="col-dates">
+          <div><span class="badge">Created</span> ${escapeHtml(formatDate(created))}</div>
+          <div style="margin-top:2px;"><span class="badge">Updated</span> ${escapeHtml(formatDate(revised))}</div>
+        </td>
+        <td class="col-uris">${urisHtml}</td>
+        <td class="col-notes">${notesHtml}</td>
+      </tr>`;
+    }
+
+    function renderGroups() {
+      const totalItems = items.length;
+      const groupsCount = duplicateGroups.length;
+
+      const dupIndexSet = new Set();
+      duplicateGroups.forEach(g => g.indices.forEach(i => dupIndexSet.add(i)));
+      const dupItemsCount = dupIndexSet.size;
+      const uniqueCount = totalItems - dupItemsCount;
+
+      let finalExportCount = 0;
+      let mergeReduction = 0;
+      
+      duplicateGroups.forEach(g => {
+         const merging = g.indices.filter(i => itemsToMerge.has(i) && !itemsToDelete.has(i));
+         if (merging.length > 1) {
+            mergeReduction += (merging.length - 1);
+         }
+      });
+      
+      finalExportCount = totalItems - itemsToDelete.size - mergeReduction;
+
+      if (!totalItems) {
+        summaryEl.innerHTML = "";
+      } else {
+        const leftHtml = `Loaded <strong>${totalItems}</strong> entries.<br>` +
+          `Found <strong>${groupsCount}</strong> duplicate group${groupsCount === 1 ? "" : "s"} ` +
+          `involving <strong>${dupItemsCount}</strong> entries.<br>` +
+          `<strong>${uniqueCount}</strong> entries have no duplicates.`;
+          
+        const rightHtml = `<div style="text-align: right;">` +
+          `Final Export: <strong>${finalExportCount}</strong> entries<br>` +
+          `<small class="text-muted">(${itemsToDelete.size} deleted, ${mergeReduction} merged)</small>` +
+          `</div>`;
+          
+        summaryEl.innerHTML = `<div>${leftHtml}</div>${rightHtml}`;
+      }
+
+      updateDeleteSelectedBtnLabel();
+      downloadBtn.disabled = !items.length;
+
+      if (!groupsCount) {
+        hintEl.textContent = ""
+        groupsEl.innerHTML = "";
+        updateSelectAllGroupsBtnLabel();
+        updateMergeAllGroupsBtnLabel();
+        return;
+      }
+
+      hintEl.textContent = "";
+      updateSelectAllGroupsBtnLabel();
+      updateMergeAllGroupsBtnLabel();
+
+      const htmlParts = [];
+
+      duplicateGroups.forEach((g, groupIndex) => {
+        const site = g.site;
+        const usernameRaw = g.usernameRaw || g.usernameLower;
+        const count = g.indices.length;
+        
+        const selectedInGroup = g.indices.filter(i => selectedItems.has(i));
+        const selectedCount = selectedInGroup.length;
+        const allSelected = selectedCount === count && count > 0;
+        
+        htmlParts.push(`<div class="group">`);
+        htmlParts.push(`<div class="group-header">`);
+
+        htmlParts.push(`<div class="group-header-main">`);
+        htmlParts.push(`<div class="group-header-site">${escapeHtml(site)}</div>`);
+        htmlParts.push(`<div class="group-header-meta">`);
+
+        htmlParts.push(`<div class="meta-line">
+          <span class="username">${escapeHtml(usernameRaw)}</span>
+        </div>`);
+
+        htmlParts.push(`<div class="meta-line">
+          <span class="count">${count} item${count === 1 ? "" : "s"}</span>`);
+        
+        if (selectedCount > 0) {
+          const selectedText = allSelected ? "all selected" : `${selectedCount} selected`;
+          htmlParts.push(`<span class="tag tag-selected">${escapeHtml(selectedText)}</span>`);
+        }
+        
+        const mergedInGroup = g.indices.filter(i => itemsToMerge.has(i)).length;
+        if (mergedInGroup > 0) {
+          htmlParts.push(`<span class="tag tag-merge">${mergedInGroup} will be merged</span>`);
+        }
+        
+        const deletedInGroup = g.indices.filter(i => itemsToDelete.has(i)).length;
+        if (deletedInGroup > 0) {
+           htmlParts.push(`<span class="tag tag-deleted">${deletedInGroup} will be deleted</span>`); 
+        }
+
+        htmlParts.push(`</div>`);
+        htmlParts.push(`</div>`);
+        htmlParts.push(`</div>`);
+
+        const selectAllLabel = allSelected ? "Unselect all in group" : "Select all in group";
+        
+        let deleteLabel = "Mark group for deletion";
+        let anySelectedDeleted = selectedInGroup.some(i => itemsToDelete.has(i));
+        if (anySelectedDeleted) {
+           deleteLabel = "Unmark selected for deletion";
+        } else if (selectedCount > 0) {
+           deleteLabel = "Mark selected for deletion";
+        }
+
+        let mergeLabel = "Mark to merge entire group";
+        let mergeDisabled = false;
+        
+        const anySelectedMerged = selectedInGroup.some(i => itemsToMerge.has(i));
+        
+        if (anySelectedMerged) {
+           mergeLabel = "Unmark merge";
+        } else if (selectedCount > 1) {
+           mergeLabel = "Merge selected entries";
+        } else if (selectedCount === 1) {
+           mergeLabel = "Merge selected entries";
+           mergeDisabled = true;
+        }
+        
+        const disabledAttr = mergeDisabled ? "disabled" : "";
+
+        htmlParts.push(`<div class="group-actions">
+          <button type="button"
+                  class="btn btn-secondary btn-select-group"
+                  data-group-index="${groupIndex}">
+            ${escapeHtml(selectAllLabel)}
+          </button>
+          <button type="button"
+                  class="btn btn-merge-group"
+                  data-group-index="${groupIndex}" ${disabledAttr}>
+            ${escapeHtml(mergeLabel)}
+          </button>
+          <button type="button"
+                  class="btn btn-danger btn-delete-group"
+                  data-group-index="${groupIndex}">
+            ${escapeHtml(deleteLabel)}
+          </button>
+        </div>`);
+
+        htmlParts.push(`</div>`);
+
+        htmlParts.push(`<table>`);
+        htmlParts.push(`<thead><tr>
+          <th class="col-select">Select</th>
+          <th class="col-name">Name</th>
+          <th class="col-dates">Created / Updated</th>
+          <th class="col-uris">URIs</th>
+          <th class="col-notes">Notes</th>
+        </tr></thead><tbody>`);
+
+        g.indices.forEach(idx => {
+          const it = items[idx];
+          const isDeleted = itemsToDelete.has(idx);
+          let isSurvivor = false;
+          if (!isDeleted && (count - deletedInGroup === 1)) {
+             isSurvivor = true;
+          }
+          htmlParts.push(renderItemRow(it, idx, false, isSurvivor));
+        });
+
+        htmlParts.push(`</tbody></table>`);
+        
+        if (showPreviews && deletedInGroup < count) {
+          const previewItems = generateGroupPreview(groupIndex);
+          htmlParts.push(`<div class="preview-container">
+            <div class="preview-arrow">▼ Result Preview</div>
+            <table>
+             <thead><tr>
+              <th class="col-select">Status</th>
+              <th class="col-name">Name</th>
+              <th class="col-dates">Created / Updated</th>
+              <th class="col-uris">URIs</th>
+              <th class="col-notes">Notes</th>
+            </tr></thead>
+            <tbody>`);
+            
+            previewItems.forEach((pit, pidx) => {
+               htmlParts.push(renderItemRow(pit, pidx, true));
+            });
+            
+          htmlParts.push(`</tbody></table></div>`);
+        }
+
+        htmlParts.push(`</div>`);
+      });
+
+      groupsEl.innerHTML = htmlParts.join("");
+      attachGroupListeners();
+      applyFilter();
+    }
+
+    function attachGroupListeners() {
+      document.querySelectorAll(".item-select").forEach(cb => {
+        cb.addEventListener("change", () => {
+          const idx = parseInt(cb.getAttribute("data-index"), 10);
+          if (Number.isNaN(idx)) return;
+          if (cb.checked) selectedItems.add(idx);
+          else selectedItems.delete(idx);
+          renderGroups();
+        });
+      });
+
+      document.querySelectorAll(".btn-select-group").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.getAttribute("data-group-index"), 10);
+          if (Number.isNaN(idx)) return;
+          const g = duplicateGroups[idx];
+          const indices = g.indices;
+          const allSelected = indices.every(i => selectedItems.has(i));
+          if (allSelected) indices.forEach(i => selectedItems.delete(i));
+          else indices.forEach(i => selectedItems.add(i));
+          renderGroups();
+        });
+      });
+
+      document.querySelectorAll(".btn-merge-group").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.getAttribute("data-group-index"), 10);
+          if (Number.isNaN(idx)) return;
+          const g = duplicateGroups[idx];
+          const indices = g.indices;
+          const selectedInGroup = indices.filter(i => selectedItems.has(i));
+          
+          if (selectedInGroup.length > 0) {
+             const anyMerged = selectedInGroup.some(i => itemsToMerge.has(i));
+             if (anyMerged) {
+                selectedInGroup.forEach(i => {
+                   if (itemsToMerge.has(i)) {
+                      itemsToMerge.delete(i);
+                      // Keep checkbox checked for deleted
+                      if (!itemsToDelete.has(i)) selectedItems.delete(i);
+                   }
+                });
+             } else {
+                selectedInGroup.forEach(i => {
+                   itemsToMerge.add(i);
+                   itemsToDelete.delete(i);
+                   selectedItems.delete(i);
+                });
+             }
+          } else {
+             const anyMerged = indices.some(i => itemsToMerge.has(i));
+             if (anyMerged) {
+                indices.forEach(i => itemsToMerge.delete(i));
+             } else {
+                indices.forEach(i => {
+                   itemsToMerge.add(i);
+                   itemsToDelete.delete(i);
+                });
+             }
+          }
+          renderGroups();
+        });
+      });
+
+      document.querySelectorAll(".btn-delete-group").forEach(btn => {
+        btn.addEventListener("click", () => {
+           const idx = parseInt(btn.getAttribute("data-group-index"), 10);
+           if (Number.isNaN(idx)) return;
+           const g = duplicateGroups[idx];
+           const indices = g.indices;
+           const selectedInGroup = indices.filter(i => selectedItems.has(i));
+           
+           if (selectedInGroup.length > 0) {
+              const anyDeleted = selectedInGroup.some(i => itemsToDelete.has(i));
+              if (anyDeleted) {
+                 selectedInGroup.forEach(i => {
+                    if (itemsToDelete.has(i)) {
+                       itemsToDelete.delete(i);
+                       // Keep checkbox checked for merged
+                       if (!itemsToMerge.has(i)) selectedItems.delete(i);
+                    }
+                 });
+              } else {
+                 selectedInGroup.forEach(i => {
+                    itemsToDelete.add(i);
+                    itemsToMerge.delete(i);
+                    selectedItems.delete(i);
+                 });
+              }
+           } else {
+              const anyDeleted = indices.some(i => itemsToDelete.has(i));
+              if (anyDeleted) {
+                 indices.forEach(i => itemsToDelete.delete(i));
+              } else {
+                 indices.forEach(i => {
+                    itemsToDelete.add(i);
+                    itemsToMerge.delete(i);
+                 });
+              }
+           }
+           renderGroups();
+        });
+      });
+    }
+
+    function applyFilter() {
+      const term = filterInput.value.toLowerCase().trim();
+      const groups = groupsEl.querySelectorAll(".group");
+      
+      clearSearchBtn.style.display = term ? "block" : "none";
+
+      groups.forEach(group => {
+        if (!term) {
+          group.style.display = "";
+          return;
+        }
+        const site = group.querySelector(".group-header-site").textContent.toLowerCase();
+        const username = group.querySelector(".username").textContent.toLowerCase();
+        if (site.includes(term) || username.includes(term)) {
+          group.style.display = "";
+        } else {
+          group.style.display = "none";
+        }
+      });
+    }
+
+    filterInput.addEventListener("input", applyFilter);
+    
+    previewToggle.addEventListener("change", () => {
+       showPreviews = previewToggle.checked;
+       renderGroups();
+    });
+
+    clearSearchBtn.addEventListener("click", () => {
+      filterInput.value = "";
+      applyFilter();
+    });
+
+    function buildExport(options) {
+      if (!vaultData || !Array.isArray(items)) {
+        alert("Load a Bitwarden JSON export first.");
+        return null;
+      }
+
+      const itemCount = items.length;
+      const removed = new Array(itemCount).fill(false);
+      const resultItems = [];
+
+      duplicateGroups.forEach((g, groupIndex) => {
+          const indices = g.indices;
+          
+          const survivors = indices.filter(i => !itemsToDelete.has(i));
+          const toMerge = survivors.filter(i => itemsToMerge.has(i));
+          const leftOver = survivors.filter(i => !itemsToMerge.has(i));
+          
+          if (toMerge.length > 1) {
+             const merged = mergeSameAccountGroup(toMerge);
+             resultItems.push(merged);
+             toMerge.forEach(i => removed[i] = true);
+          }
+          
+          leftOver.forEach(i => {
+             resultItems.push(items[i]);
+             removed[i] = true;
+          });
+          
+          indices.forEach(i => {
+             if (itemsToDelete.has(i)) removed[i] = true;
+          });
+      });
+
+      for (let i = 0; i < itemCount; i++) {
+        if (itemsToDelete.has(i)) continue;
+        if (removed[i]) continue;
+        resultItems.push(items[i]);
+      }
+
+      shareUrisWithinSite(resultItems);
+
+      resultItems.forEach(it => {
+        if ("folderId" in it) it.folderId = null;
+      });
+
+      const outputData = Object.assign({}, vaultData, {
+        items: resultItems,
+        folders: []
+      });
+
+      return outputData;
+    }
+
+    function downloadJson(data, filename) {
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function handleDownload() {
+      const data = buildExport();
+      if (!data) return;
+      downloadJson(data, "bitwarden_merged.json");
+    }
+
+    function handleDeleteSelected() {
+      if (!selectedItems.size) {
+        alert("No entries selected.");
+        return;
+      }
+      
+      const allSelectedAreDeleted = Array.from(selectedItems).every(i => itemsToDelete.has(i));
+      
+      selectedItems.forEach(i => {
+         if (allSelectedAreDeleted) {
+            itemsToDelete.delete(i);
+            if (!itemsToMerge.has(i)) selectedItems.delete(i);
+         } else {
+            itemsToDelete.add(i);
+            itemsToMerge.delete(i);
+            selectedItems.delete(i);
+         }
+      });
+      renderGroups();
+    }
+
+    function handleSelectAllGroupsClick() {
+      if (!duplicateGroups.length) return;
+      let allIndices = [];
+      duplicateGroups.forEach(g => g.indices.forEach(i => allIndices.push(i)));
+      if (!allIndices.length) return;
+      
+      const allSelected = allIndices.every(i => selectedItems.has(i));
+      if (allSelected) allIndices.forEach(i => selectedItems.delete(i));
+      else allIndices.forEach(i => selectedItems.add(i));
+      renderGroups();
+    }
+
+    function handleMergeAllGroupsClick() {
+      if (!duplicateGroups.length) return;
+      const allIndices = [];
+      duplicateGroups.forEach(g => g.indices.forEach(i => allIndices.push(i)));
+      
+      const allMerged = allIndices.every(i => itemsToMerge.has(i));
+      
+      if (allMerged) {
+         allIndices.forEach(i => itemsToMerge.delete(i));
+      } else {
+         allIndices.forEach(i => {
+            itemsToMerge.add(i);
+            itemsToDelete.delete(i);
+         });
+      }
+      selectedItems.clear();
+      renderGroups();
+    }
+
+    function handleFileChange(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) {
+        vaultData = null;
+        items = [];
+        duplicateGroups = [];
+        itemsToMerge = new Set();
+        selectedItems = new Set();
+        itemsToDelete = new Set();
+        downloadBtn.disabled = true;
+        deleteSelectedBtn.disabled = true;
+        selectAllGroupsBtn.disabled = true;
+        mergeAllGroupsBtn.disabled = true;
+        fileLabelText.textContent = "Choose file";
+        setStatus("");
+        summaryEl.textContent = "";
+        hintEl.textContent = "";
+        groupsEl.innerHTML = "";
+        searchWrapper.style.display = "none";
+        return;
+      }
+
+      fileLabelText.textContent = file.name;
+
+      const reader = new FileReader();
+      reader.onload = evt => {
+        try {
+          const text = evt.target.result;
+          const data = JSON.parse(text);
+          if (!data || !Array.isArray(data.items)) {
+            throw new Error("JSON does not look like a Bitwarden export.");
+          }
+          vaultData = data;
+          items = data.items;
+          computeDuplicateGroups();
+          renderGroups();
+          setStatus("");
+          searchWrapper.style.display = "block";
+        } catch (err) {
+          console.error(err);
+          setStatus("Error: " + err.message, true);
+          vaultData = null;
+          items = [];
+          duplicateGroups = [];
+          itemsToMerge = new Set();
+          selectedItems = new Set();
+          itemsToDelete = new Set();
+          groupsEl.innerHTML = "";
+          summaryEl.textContent = "";
+          hintEl.textContent = "";
+          downloadBtn.disabled = true;
+          deleteSelectedBtn.disabled = true;
+          selectAllGroupsBtn.disabled = true;
+          mergeAllGroupsBtn.disabled = true;
+          fileLabelText.textContent = "Choose file";
+          searchWrapper.style.display = "none";
+        }
+      };
+      reader.onerror = () => {
+        setStatus("Error reading file.", true);
+        searchWrapper.style.display = "none";
+      };
+      reader.readAsText(file);
+    }
+
+    fileInput.addEventListener("change", handleFileChange);
+    downloadBtn.addEventListener("click", handleDownload);
+    deleteSelectedBtn.addEventListener("click", handleDeleteSelected);
+    selectAllGroupsBtn.addEventListener("click", handleSelectAllGroupsClick);
+    mergeAllGroupsBtn.addEventListener("click", handleMergeAllGroupsClick);
+  </script>
+</body>
+</html>
