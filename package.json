@@ -1,0 +1,16 @@
+{
+  "name": "bitwarden-duplicates-inspector",
+  "version": "0.0.2",
+  "private": true,
+  "type": "module",
+  "description": "Browser-based tool for finding and merging duplicate entries in a Bitwarden vault export.",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "esbuild": "^0.23.0",
+    "vitest": "^2.0.0"
+  }
+}
