@@ -1,0 +1,34 @@
+{
+  "encrypted": false,
+  "folders": [],
+  "items": [
+    {
+      "id": "n1", "type": 1, "name": "Some Service",
+      "creationDate": "2020-01-01T00:00:00.000Z",
+      "revisionDate": "2020-01-01T00:00:00.000Z",
+      "favorite": false, "notes": "",
+      "login": { "username": "user@mail.example", "password": "p1", "uris": [] }
+    },
+    {
+      "id": "n2", "type": 1, "name": "Other Service",
+      "creationDate": "2021-01-01T00:00:00.000Z",
+      "revisionDate": "2021-01-01T00:00:00.000Z",
+      "favorite": false, "notes": "",
+      "login": { "username": "User@Mail.Example", "password": "p1", "uris": [] }
+    },
+    {
+      "id": "n3", "type": 1, "name": "Login at acme.io",
+      "creationDate": "2020-05-01T00:00:00.000Z",
+      "revisionDate": "2020-05-01T00:00:00.000Z",
+      "favorite": false, "notes": "",
+      "login": { "username": "bob", "password": "p2", "uris": [] }
+    },
+    {
+      "id": "n4", "type": 1, "name": "Acme.io support",
+      "creationDate": "2021-05-01T00:00:00.000Z",
+      "revisionDate": "2021-05-01T00:00:00.000Z",
+      "favorite": false, "notes": "",
+      "login": { "username": "bob", "password": "p2", "uris": [] }
+    }
+  ]
+}

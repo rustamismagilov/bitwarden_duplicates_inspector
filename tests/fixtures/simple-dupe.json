@@ -1,0 +1,37 @@
+{
+  "encrypted": false,
+  "folders": [],
+  "items": [
+    {
+      "id": "a1",
+      "type": 1,
+      "name": "Google",
+      "creationDate": "2020-01-01T00:00:00.000Z",
+      "revisionDate": "2020-01-01T00:00:00.000Z",
+      "favorite": false,
+      "notes": "",
+      "login": {
+        "username": "alice@example.com",
+        "password": "pw-alpha",
+        "uris": [
+          { "match": null, "uri": "https://google.com" },
+          { "match": null, "uri": "https://www.google.com/account" }
+        ]
+      }
+    },
+    {
+      "id": "a2",
+      "type": 1,
+      "name": "Google account",
+      "creationDate": "2022-06-01T00:00:00.000Z",
+      "revisionDate": "2022-06-01T00:00:00.000Z",
+      "favorite": true,
+      "notes": "secondary",
+      "login": {
+        "username": "Alice@Example.com",
+        "password": "pw-alpha",
+        "uris": [{ "match": null, "uri": "https://google.com" }]
+      }
+    }
+  ]
+}

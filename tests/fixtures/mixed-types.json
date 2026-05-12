@@ -1,0 +1,36 @@
+{
+  "encrypted": false,
+  "folders": [],
+  "items": [
+    {
+      "id": "m1",
+      "type": 1,
+      "name": "Reddit",
+      "creationDate": "2021-01-01T00:00:00.000Z",
+      "revisionDate": "2021-01-01T00:00:00.000Z",
+      "favorite": false,
+      "notes": "",
+      "login": {
+        "username": "u@x.com",
+        "password": "p1",
+        "uris": [{ "match": null, "uri": "https://reddit.com" }]
+      }
+    },
+    {
+      "id": "m2",
+      "type": 1,
+      "name": "Reddit alt",
+      "creationDate": "2022-01-01T00:00:00.000Z",
+      "revisionDate": "2022-01-01T00:00:00.000Z",
+      "favorite": false,
+      "notes": "",
+      "login": {
+        "username": "u@x.com",
+        "password": "p1",
+        "uris": [{ "match": null, "uri": "https://reddit.com/login" }]
+      }
+    },
+    { "id": "m3", "type": 2, "name": "Secure note 1", "notes": "secret", "creationDate": "2020-01-01T00:00:00.000Z", "revisionDate": "2020-01-01T00:00:00.000Z", "favorite": false },
+    { "id": "m4", "type": 3, "name": "Credit card", "notes": "", "creationDate": "2020-01-01T00:00:00.000Z", "revisionDate": "2020-01-01T00:00:00.000Z", "favorite": false }
+  ]
+}

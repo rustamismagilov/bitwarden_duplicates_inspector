@@ -1,0 +1,34 @@
+{
+  "encrypted": false,
+  "folders": [],
+  "items": [
+    {
+      "id": "u1", "type": 1, "name": "Foo",
+      "creationDate": "2020-01-01T00:00:00.000Z",
+      "revisionDate": "2020-01-01T00:00:00.000Z",
+      "favorite": false, "notes": "",
+      "login": { "username": "me@x.com", "password": "p", "uris": [{ "match": null, "uri": "https://foo.com" }] }
+    },
+    {
+      "id": "u2", "type": 1, "name": "Foo",
+      "creationDate": "2020-02-01T00:00:00.000Z",
+      "revisionDate": "2020-02-01T00:00:00.000Z",
+      "favorite": false, "notes": "",
+      "login": { "username": "me@x.com", "password": "p", "uris": [{ "match": null, "uri": "foo.com" }] }
+    },
+    {
+      "id": "u3", "type": 1, "name": "Foo",
+      "creationDate": "2020-03-01T00:00:00.000Z",
+      "revisionDate": "2020-03-01T00:00:00.000Z",
+      "favorite": false, "notes": "",
+      "login": { "username": "me@x.com", "password": "p", "uris": [{ "match": null, "uri": "https://www.foo.com" }] }
+    },
+    {
+      "id": "u4", "type": 1, "name": "Foo",
+      "creationDate": "2020-04-01T00:00:00.000Z",
+      "revisionDate": "2020-04-01T00:00:00.000Z",
+      "favorite": false, "notes": "",
+      "login": { "username": "me@x.com", "password": "p", "uris": [{ "match": null, "uri": "http://foo.com/login" }] }
+    }
+  ]
+}
