@@ -6,7 +6,7 @@ import {
   notify,
 } from "./state.js";
 import { buildExport } from "./core/merge.js";
-import { renderUI, applyFilter } from "./ui/render.js";
+import { renderUI, applyFilter, togglePreviewSections } from "./ui/render.js";
 import { attachDelegatedListener } from "./ui/events.js";
 
 const fileInput = document.getElementById("fileInput");
@@ -179,8 +179,11 @@ clearSearchBtn.addEventListener("click", () => {
 });
 
 previewToggle.addEventListener("change", () => {
-  getState().showPreviews = previewToggle.checked;
-  notify();
+  const s = getState();
+  s.showPreviews = previewToggle.checked;
+  // toggle previews in place
+  // a full rebuild lags on large vaults
+  togglePreviewSections(s, refs);
 });
 
 fileInput.addEventListener("change", handleFileChange);

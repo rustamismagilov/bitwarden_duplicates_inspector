@@ -1,6 +1,26 @@
 import { renderItemRow, escapeHtml } from "./components.js";
 import { mergeSameAccountGroup } from "../core/merge.js";
 
+function buildPreviewSectionHtml(state, groupIndex) {
+  const previewItems = generateGroupPreview(state, groupIndex);
+  const rowsHtml = previewItems
+    .map((pit, pidx) => renderItemRow(state, pit, pidx, true))
+    .join("");
+  return `<div class="preview-container">
+    <div class="preview-arrow">▼ Result Preview</div>
+    <table>
+     <thead><tr>
+      <th class="col-select">Status</th>
+      <th class="col-name">Name</th>
+      <th class="col-dates">Created / Updated</th>
+      <th class="col-uris">URIs</th>
+      <th class="col-notes">Notes</th>
+    </tr></thead>
+    <tbody>${rowsHtml}</tbody>
+    </table>
+  </div>`;
+}
+
 function generateGroupPreview(state, groupIndex) {
   const g = state.duplicateGroups[groupIndex];
   const indices = g.indices;
@@ -216,30 +236,30 @@ function renderGroupsMarkup(state) {
     htmlParts.push(`</tbody></table>`);
 
     if (state.showPreviews && deletedInGroup < count) {
-      const previewItems = generateGroupPreview(state, groupIndex);
-      htmlParts.push(`<div class="preview-container">
-        <div class="preview-arrow">▼ Result Preview</div>
-        <table>
-         <thead><tr>
-          <th class="col-select">Status</th>
-          <th class="col-name">Name</th>
-          <th class="col-dates">Created / Updated</th>
-          <th class="col-uris">URIs</th>
-          <th class="col-notes">Notes</th>
-        </tr></thead>
-        <tbody>`);
-
-      previewItems.forEach((pit, pidx) => {
-        htmlParts.push(renderItemRow(state, pit, pidx, true));
-      });
-
-      htmlParts.push(`</tbody></table></div>`);
+      htmlParts.push(buildPreviewSectionHtml(state, groupIndex));
     }
 
     htmlParts.push(`</div>`);
   });
 
   return htmlParts.join("");
+}
+
+// insert and remove preview sections in place
+// avoids a full groupsEl rebuild
+export function togglePreviewSections(state, refs) {
+  refs.groupsEl.querySelectorAll(".preview-container").forEach(el => el.remove());
+  if (!state.showPreviews) return;
+
+  const groupEls = refs.groupsEl.querySelectorAll(".group");
+  state.duplicateGroups.forEach((g, groupIndex) => {
+    const groupEl = groupEls[groupIndex];
+    if (!groupEl) return;
+    const count = g.indices.length;
+    const deletedInGroup = g.indices.filter(i => state.itemsToDelete.has(i)).length;
+    if (deletedInGroup >= count) return;
+    groupEl.insertAdjacentHTML("beforeend", buildPreviewSectionHtml(state, groupIndex));
+  });
 }
 
 export function applyFilter(refs) {
