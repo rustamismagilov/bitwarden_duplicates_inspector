@@ -235,7 +235,9 @@ function renderGroupsMarkup(state) {
 
     htmlParts.push(`</tbody></table>`);
 
-    if (state.showPreviews && deletedInGroup < count) {
+    // skip preview when nothing is queued
+    // otherwise it just duplicates the main table
+    if (state.showPreviews && deletedInGroup < count && (mergedInGroup > 0 || deletedInGroup > 0)) {
       htmlParts.push(buildPreviewSectionHtml(state, groupIndex));
     }
 
@@ -257,7 +259,11 @@ export function togglePreviewSections(state, refs) {
     if (!groupEl) return;
     const count = g.indices.length;
     const deletedInGroup = g.indices.filter(i => state.itemsToDelete.has(i)).length;
+    const mergedInGroup = g.indices.filter(i => state.itemsToMerge.has(i)).length;
     if (deletedInGroup >= count) return;
+    // skip groups with no actions queued
+    // preview would just duplicate the main table
+    if (mergedInGroup === 0 && deletedInGroup === 0) return;
     groupEl.insertAdjacentHTML("beforeend", buildPreviewSectionHtml(state, groupIndex));
   });
 }
