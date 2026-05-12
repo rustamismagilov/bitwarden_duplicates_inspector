@@ -45,7 +45,7 @@ Before you begin, ensure you have:
 
 Since this is a client-side tool, there is no installation or Python requirement.
 
-1. **Download** the `index.html` file from this repository.
+1. **Download** [`index.html` from the latest release](https://github.com/rustamismagilov/bitwarden_duplicates_inspector/releases/latest/download/index.html).
 2. **Open** `index.html` in your web browser.
 3. [**Export** you Bitwarden vault](https://bitwarden.com/help/export-your-data/).
 4. Click on **Choose file** and select your unencrypted `.json` export.
@@ -105,11 +105,21 @@ Each duplicate group has its own set of buttons that change behavior based on yo
 
 * **Offline Capable:** You can disconnect your internet connection before loading your JSON file. The tool will function perfectly.
 * **Zero-Knowledge:** No analytics, no tracking, and no external API calls.
-* **Source Code:** The code is readable and contained entirely within `index.html`. You can inspect it in any text editor to verify its safety.
+* **Source Code:** The source is organized under [`src/`](src/) and bundled into a single self-contained `index.html` at build time. You can inspect the source files directly, or open the released `index.html` in any text editor to verify its safety.
 
 ## Output
 
 The tool generates new JSON file **`bitwarden_merged.json`**. A complete vault export containing your merged/cleaned entries ready for import.
+
+## Building from source
+
+```sh
+npm install
+npm test       # run unit tests (Vitest)
+npm run build  # produces dist/index.html
+```
+
+The build inlines all JavaScript and CSS into a single self-contained HTML file. Source modules live under `src/`; tests under `tests/`.
 
 ## Contributing
 
