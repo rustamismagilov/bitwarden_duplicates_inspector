@@ -262,6 +262,10 @@
       padding: 6px 8px 8px;
       margin-bottom: 10px;
       background: var(--bg-card);
+      /* skip layout/paint for off-screen groups */
+      /* big perf win on large vaults */
+      content-visibility: auto;
+      contain-intrinsic-size: auto 600px;
     }
 
     .group-header {
