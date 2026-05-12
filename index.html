@@ -609,6 +609,8 @@
     } from "./src/state.js";
     import { mergeSameAccountGroup, buildExport } from "./src/core/merge.js";
     import { canonicalWebsiteKey } from "./src/core/dedup.js";
+    import { renderGroups as renderGroupsHtml } from "./src/ui/render.js";
+    import { attachDelegatedListener } from "./src/ui/events.js";
 
     const fileInput = document.getElementById("fileInput");
     const fileLabelText = document.getElementById("fileLabelText");
@@ -674,468 +676,61 @@
       return d.toLocaleString();
     }
 
-    function updateSelectAllGroupsBtnLabel() {
-      const { duplicateGroups, selectedItems } = getState();
-      if (!duplicateGroups.length) {
-        selectAllGroupsBtn.textContent = "Select all entries in all groups";
-        selectAllGroupsBtn.disabled = true;
+    function updateGroupButtonLabel(btn, options) {
+      const { totalCount, activeCount, labelDefault, labelActive, disabledIfZeroTotal } = options;
+      if (disabledIfZeroTotal && !totalCount) {
+        btn.textContent = labelDefault;
+        btn.disabled = true;
         return;
       }
-      let allIndices = [];
-      duplicateGroups.forEach(g => g.indices.forEach(i => allIndices.push(i)));
-      if (!allIndices.length) {
-        selectAllGroupsBtn.textContent = "Select all entries in all groups";
-        selectAllGroupsBtn.disabled = true;
-        return;
-      }
-      const allSelected = allIndices.every(i => selectedItems.has(i));
-      selectAllGroupsBtn.disabled = false;
-      selectAllGroupsBtn.textContent = allSelected ? "Unselect all entries in all groups" : "Select all entries in all groups";
+      btn.disabled = false;
+      btn.textContent = (totalCount > 0 && activeCount === totalCount) ? labelActive : labelDefault;
     }
 
-    function updateMergeAllGroupsBtnLabel() {
-      const { duplicateGroups, itemsToMerge } = getState();
-      if (!duplicateGroups.length) {
-        mergeAllGroupsBtn.textContent = "Merge all entries in all groups";
-        mergeAllGroupsBtn.disabled = true;
-        return;
-      }
-      mergeAllGroupsBtn.disabled = false;
-      const allIndices = [];
-      duplicateGroups.forEach(g => g.indices.forEach(i => allIndices.push(i)));
+    function updateAllButtonLabels() {
+      const state = getState();
+      const allIndices = state.duplicateGroups.flatMap(g => g.indices);
 
-      const allMerged = allIndices.every(i => itemsToMerge.has(i));
-      mergeAllGroupsBtn.textContent = allMerged
-        ? "Unmark all merges"
-        : "Merge all entries in all groups";
-    }
-    
-    function updateDeleteSelectedBtnLabel() {
-      const { selectedItems, itemsToDelete } = getState();
-      if (!selectedItems.size) {
-        deleteSelectedBtn.textContent = "Mark selected for deletion";
-        deleteSelectedBtn.disabled = true;
-        return;
-      }
-      deleteSelectedBtn.disabled = false;
-      const allSelectedAreDeleted = Array.from(selectedItems).every(i => itemsToDelete.has(i));
-      if (allSelectedAreDeleted) {
-        deleteSelectedBtn.textContent = "Unmark selected for deletion";
-      } else {
-        deleteSelectedBtn.textContent = "Mark selected for deletion";
-      }
-    }
-
-    function generateGroupPreview(groupIndex) {
-      const { duplicateGroups, items, itemsToDelete, itemsToMerge } = getState();
-      const g = duplicateGroups[groupIndex];
-      const indices = g.indices;
-
-      const survivors = [];
-      const toMerge = [];
-
-      indices.forEach(i => {
-        if (itemsToDelete.has(i)) return;
-        if (itemsToMerge.has(i)) toMerge.push(items[i]);
-        else survivors.push(items[i]);
+      updateGroupButtonLabel(selectAllGroupsBtn, {
+        totalCount: allIndices.length,
+        activeCount: allIndices.filter(i => state.selectedItems.has(i)).length,
+        labelDefault: "Select all entries in all groups",
+        labelActive: "Unselect all entries in all groups",
+        disabledIfZeroTotal: true,
       });
 
-      if (toMerge.length > 1) {
-        const merged = mergeSameAccountGroup(toMerge);
-        survivors.push(merged);
-      } else {
-        toMerge.forEach(it => survivors.push(it));
-      }
+      updateGroupButtonLabel(mergeAllGroupsBtn, {
+        totalCount: allIndices.length,
+        activeCount: allIndices.filter(i => state.itemsToMerge.has(i)).length,
+        labelDefault: "Merge all entries in all groups",
+        labelActive: "Unmark all merges",
+        disabledIfZeroTotal: true,
+      });
 
-      return survivors;
-    }
-
-    function renderItemRow(it, idx, isPreview = false, isSurvivor = false) {
-      const login = it.login || {};
-      const uris = Array.isArray(login.uris) ? login.uris : [];
-      const name = it.name || "";
-      const created = it.creationDate || "";
-      const revised = it.revisionDate || "";
-      const notes = it.notes || "";
-
-      let urisHtml = "";
-      if (uris.length === 0) {
-        urisHtml = "—";
-      } else {
-        urisHtml = "<ul class=\"uri-list\">" + uris.map(u => {
-          return "<li>" + escapeHtml(u.uri || "") + "</li>";
-        }).join("") + "</ul>";
-      }
-
-      let notesHtml = "";
-      if (!notes) {
-        notesHtml = `<span class="note-empty">—</span>`;
-      } else {
-        const short = notes.length > 120 ? notes.slice(0, 120) + "…" : notes;
-        notesHtml =
-          `<details><summary>${escapeHtml(short)}</summary>` +
-          `<pre>${escapeHtml(notes)}</pre></details>`;
-      }
-
-      const favTag = it.favorite ? `<span class="tag tag-fav">★ favorite</span>` : "";
-      const typeTag = it.type !== 1 ? `<span class="tag tag-no-login">type=${escapeHtml(String(it.type))}</span>` : "";
-
-      let rowClass = "";
-      let checkHtml = "";
-      
-      if (!isPreview) {
-        const { itemsToDelete, itemsToMerge, selectedItems } = getState();
-        const isDeleted = itemsToDelete.has(idx);
-        const isMerged = itemsToMerge.has(idx);
-        const isSelected = selectedItems.has(idx);
-        
-        if (isDeleted) rowClass = "row-deleted";
-        else if (isMerged) rowClass = "row-merged";
-        else if (isSurvivor) rowClass = "row-survivor";
-        
-        const checkedAttr = isSelected ? "checked" : "";
-        checkHtml = `<td class="col-select" style="text-align:center;">
-          <input type="checkbox" class="item-select" data-index="${idx}" ${checkedAttr} />
-        </td>`;
-      } else {
-        checkHtml = `<td class="col-select" style="text-align:center; color: var(--muted); font-weight:600;">Final Result</td>`;
-      }
-
-      return `<tr class="${rowClass}" data-item-index="${idx}">
-        ${checkHtml}
-        <td class="col-name">
-          ${escapeHtml(name || "(no name)")}
-          ${favTag}${typeTag}
-          <span class="badge badge-id">id: ${escapeHtml(it.id || "new")}</span>
-        </td>
-        <td class="col-dates">
-          <div><span class="badge">Created</span> ${escapeHtml(formatDate(created))}</div>
-          <div style="margin-top:2px;"><span class="badge">Updated</span> ${escapeHtml(formatDate(revised))}</div>
-        </td>
-        <td class="col-uris">${urisHtml}</td>
-        <td class="col-notes">${notesHtml}</td>
-      </tr>`;
+      updateGroupButtonLabel(deleteSelectedBtn, {
+        totalCount: state.selectedItems.size,
+        activeCount: Array.from(state.selectedItems).filter(i => state.itemsToDelete.has(i)).length,
+        labelDefault: "Mark selected for deletion",
+        labelActive: "Unmark selected for deletion",
+        disabledIfZeroTotal: true,
+      });
     }
 
     function renderGroups() {
-      const { items, duplicateGroups, itemsToMerge, itemsToDelete, selectedItems, showPreviews } = getState();
-      const totalItems = items.length;
-      const groupsCount = duplicateGroups.length;
-
-      const dupIndexSet = new Set();
-      duplicateGroups.forEach(g => g.indices.forEach(i => dupIndexSet.add(i)));
-      const dupItemsCount = dupIndexSet.size;
-      const uniqueCount = totalItems - dupItemsCount;
-
-      let finalExportCount = 0;
-      let mergeReduction = 0;
-
-      duplicateGroups.forEach(g => {
-        const merging = g.indices.filter(i => itemsToMerge.has(i) && !itemsToDelete.has(i));
-        if (merging.length > 1) {
-          mergeReduction += (merging.length - 1);
-        }
-      });
-
-      finalExportCount = totalItems - itemsToDelete.size - mergeReduction;
-
-      if (!totalItems) {
-        summaryEl.innerHTML = "";
-      } else {
-        const leftHtml = `Loaded <strong>${totalItems}</strong> entries.<br>` +
-          `Found <strong>${groupsCount}</strong> duplicate group${groupsCount === 1 ? "" : "s"} ` +
-          `involving <strong>${dupItemsCount}</strong> entries.<br>` +
-          `<strong>${uniqueCount}</strong> entries have no duplicates.`;
-
-        const rightHtml = `<div style="text-align: right;">` +
-          `Final Export: <strong>${finalExportCount}</strong> entries<br>` +
-          `<small class="text-muted">(${itemsToDelete.size} deleted, ${mergeReduction} merged)</small>` +
-          `</div>`;
-
-        summaryEl.innerHTML = `<div>${leftHtml}</div>${rightHtml}`;
-      }
-
-      updateDeleteSelectedBtnLabel();
-      downloadBtn.disabled = !items.length;
-
-      if (!groupsCount) {
-        hintEl.textContent = "";
-        groupsEl.innerHTML = "";
-        updateSelectAllGroupsBtnLabel();
-        updateMergeAllGroupsBtnLabel();
-        return;
-      }
-
-      hintEl.textContent = "";
-      updateSelectAllGroupsBtnLabel();
-      updateMergeAllGroupsBtnLabel();
-
-      const htmlParts = [];
-
-      duplicateGroups.forEach((g, groupIndex) => {
-        const site = g.site;
-        const usernameRaw = g.usernameRaw || g.usernameLower;
-        const count = g.indices.length;
-
-        const selectedInGroup = g.indices.filter(i => selectedItems.has(i));
-        const selectedCount = selectedInGroup.length;
-        const allSelected = selectedCount === count && count > 0;
-        
-        htmlParts.push(`<div class="group">`);
-        htmlParts.push(`<div class="group-header">`);
-
-        htmlParts.push(`<div class="group-header-main">`);
-        htmlParts.push(`<div class="group-header-site">${escapeHtml(site)}</div>`);
-        htmlParts.push(`<div class="group-header-meta">`);
-
-        htmlParts.push(`<div class="meta-line">
-          <span class="username">${escapeHtml(usernameRaw)}</span>
-        </div>`);
-
-        htmlParts.push(`<div class="meta-line">
-          <span class="count">${count} item${count === 1 ? "" : "s"}</span>`);
-        
-        if (selectedCount > 0) {
-          const selectedText = allSelected ? "all selected" : `${selectedCount} selected`;
-          htmlParts.push(`<span class="tag tag-selected">${escapeHtml(selectedText)}</span>`);
-        }
-        
-        const mergedInGroup = g.indices.filter(i => itemsToMerge.has(i)).length;
-        if (mergedInGroup > 0) {
-          htmlParts.push(`<span class="tag tag-merge">${mergedInGroup} will be merged</span>`);
-        }
-        
-        const deletedInGroup = g.indices.filter(i => itemsToDelete.has(i)).length;
-        if (deletedInGroup > 0) {
-           htmlParts.push(`<span class="tag tag-deleted">${deletedInGroup} will be deleted</span>`); 
-        }
-
-        htmlParts.push(`</div>`);
-        htmlParts.push(`</div>`);
-        htmlParts.push(`</div>`);
-
-        const selectAllLabel = allSelected ? "Unselect all in group" : "Select all in group";
-        
-        let deleteLabel = "Mark group for deletion";
-        let anySelectedDeleted = selectedInGroup.some(i => itemsToDelete.has(i));
-        if (anySelectedDeleted) {
-           deleteLabel = "Unmark selected for deletion";
-        } else if (selectedCount > 0) {
-           deleteLabel = "Mark selected for deletion";
-        }
-
-        let mergeLabel = "Mark to merge entire group";
-        let mergeDisabled = false;
-        
-        const anySelectedMerged = selectedInGroup.some(i => itemsToMerge.has(i));
-        
-        if (anySelectedMerged) {
-           mergeLabel = "Unmark merge";
-        } else if (selectedCount > 1) {
-           mergeLabel = "Merge selected entries";
-        } else if (selectedCount === 1) {
-           mergeLabel = "Merge selected entries";
-           mergeDisabled = true;
-        }
-        
-        const disabledAttr = mergeDisabled ? "disabled" : "";
-
-        htmlParts.push(`<div class="group-actions">
-          <button type="button"
-                  class="btn btn-secondary btn-select-group"
-                  data-group-index="${groupIndex}">
-            ${escapeHtml(selectAllLabel)}
-          </button>
-          <button type="button"
-                  class="btn btn-merge-group"
-                  data-group-index="${groupIndex}" ${disabledAttr}>
-            ${escapeHtml(mergeLabel)}
-          </button>
-          <button type="button"
-                  class="btn btn-danger btn-delete-group"
-                  data-group-index="${groupIndex}">
-            ${escapeHtml(deleteLabel)}
-          </button>
-        </div>`);
-
-        htmlParts.push(`</div>`);
-
-        htmlParts.push(`<table>`);
-        htmlParts.push(`<thead><tr>
-          <th class="col-select">Select</th>
-          <th class="col-name">Name</th>
-          <th class="col-dates">Created / Updated</th>
-          <th class="col-uris">URIs</th>
-          <th class="col-notes">Notes</th>
-        </tr></thead><tbody>`);
-
-        g.indices.forEach(idx => {
-          const it = items[idx];
-          const isDeleted = itemsToDelete.has(idx);
-          let isSurvivor = false;
-          if (!isDeleted && (count - deletedInGroup === 1)) {
-             isSurvivor = true;
-          }
-          htmlParts.push(renderItemRow(it, idx, false, isSurvivor));
-        });
-
-        htmlParts.push(`</tbody></table>`);
-        
-        if (showPreviews && deletedInGroup < count) {
-          const previewItems = generateGroupPreview(groupIndex);
-          htmlParts.push(`<div class="preview-container">
-            <div class="preview-arrow">▼ Result Preview</div>
-            <table>
-             <thead><tr>
-              <th class="col-select">Status</th>
-              <th class="col-name">Name</th>
-              <th class="col-dates">Created / Updated</th>
-              <th class="col-uris">URIs</th>
-              <th class="col-notes">Notes</th>
-            </tr></thead>
-            <tbody>`);
-            
-            previewItems.forEach((pit, pidx) => {
-               htmlParts.push(renderItemRow(pit, pidx, true));
-            });
-            
-          htmlParts.push(`</tbody></table></div>`);
-        }
-
-        htmlParts.push(`</div>`);
-      });
-
-      groupsEl.innerHTML = htmlParts.join("");
-      attachGroupListeners();
-      applyFilter();
-    }
-
-    function attachGroupListeners() {
-      document.querySelectorAll(".item-select").forEach(cb => {
-        cb.addEventListener("change", () => {
-          const idx = parseInt(cb.getAttribute("data-index"), 10);
-          if (Number.isNaN(idx)) return;
-          toggleSelected(idx);
-          // subscriber handles re-render
-        });
-      });
-
-      document.querySelectorAll(".btn-select-group").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const idx = parseInt(btn.getAttribute("data-group-index"), 10);
-          if (Number.isNaN(idx)) return;
-          selectAllInGroup(idx);
-          // subscriber handles re-render
-        });
-      });
-
-      document.querySelectorAll(".btn-merge-group").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const idx = parseInt(btn.getAttribute("data-group-index"), 10);
-          if (Number.isNaN(idx)) return;
-          const s = getState();
-          const g = s.duplicateGroups[idx];
-          const indices = g.indices;
-          const selectedInGroup = indices.filter(i => s.selectedItems.has(i));
-
-          if (selectedInGroup.length > 0) {
-            const anyMerged = selectedInGroup.some(i => s.itemsToMerge.has(i));
-            if (anyMerged) {
-              selectedInGroup.forEach(i => {
-                if (s.itemsToMerge.has(i)) {
-                  s.itemsToMerge.delete(i);
-                  // Keep checkbox checked for deleted
-                  if (!s.itemsToDelete.has(i)) s.selectedItems.delete(i);
-                }
-              });
-            } else {
-              selectedInGroup.forEach(i => {
-                s.itemsToMerge.add(i);
-                s.itemsToDelete.delete(i);
-                s.selectedItems.delete(i);
-              });
-            }
-          } else {
-            const anyMerged = indices.some(i => s.itemsToMerge.has(i));
-            if (anyMerged) {
-              indices.forEach(i => s.itemsToMerge.delete(i));
-            } else {
-              indices.forEach(i => {
-                s.itemsToMerge.add(i);
-                s.itemsToDelete.delete(i);
-              });
-            }
-          }
-          renderGroups();
-        });
-      });
-
-      document.querySelectorAll(".btn-delete-group").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const idx = parseInt(btn.getAttribute("data-group-index"), 10);
-          if (Number.isNaN(idx)) return;
-          const s = getState();
-          const g = s.duplicateGroups[idx];
-          const indices = g.indices;
-          const selectedInGroup = indices.filter(i => s.selectedItems.has(i));
-
-          if (selectedInGroup.length > 0) {
-            const anyDeleted = selectedInGroup.some(i => s.itemsToDelete.has(i));
-            if (anyDeleted) {
-              selectedInGroup.forEach(i => {
-                if (s.itemsToDelete.has(i)) {
-                  s.itemsToDelete.delete(i);
-                  // Keep checkbox checked for merged
-                  if (!s.itemsToMerge.has(i)) s.selectedItems.delete(i);
-                }
-              });
-            } else {
-              selectedInGroup.forEach(i => {
-                s.itemsToDelete.add(i);
-                s.itemsToMerge.delete(i);
-                s.selectedItems.delete(i);
-              });
-            }
-          } else {
-            const anyDeleted = indices.some(i => s.itemsToDelete.has(i));
-            if (anyDeleted) {
-              indices.forEach(i => s.itemsToDelete.delete(i));
-            } else {
-              indices.forEach(i => {
-                s.itemsToDelete.add(i);
-                s.itemsToMerge.delete(i);
-              });
-            }
-          }
-          renderGroups();
-        });
-      });
+      const state = getState();
+      groupsEl.innerHTML = renderGroupsHtml(state);
+      const totalDupes = state.duplicateGroups.reduce((sum, g) => sum + g.indices.length, 0);
+      summaryEl.textContent = state.duplicateGroups.length
+        ? `${state.duplicateGroups.length} groups · ${totalDupes} entries · ${state.itemsToMerge.size} marked for merge · ${state.itemsToDelete.size} marked for delete`
+        : "";
     }
 
     function applyFilter() {
-      const term = filterInput.value.toLowerCase().trim();
-      const groups = groupsEl.querySelectorAll(".group");
-      
-      clearSearchBtn.style.display = term ? "block" : "none";
-
-      groups.forEach(group => {
-        if (!term) {
-          group.style.display = "";
-          return;
-        }
-        const site = group.querySelector(".group-header-site").textContent.toLowerCase();
-        const username = group.querySelector(".username").textContent.toLowerCase();
-        if (site.includes(term) || username.includes(term)) {
-          group.style.display = "";
-        } else {
-          group.style.display = "none";
-        }
-      });
+      setFilterText(filterInput.value);
     }
 
     filterInput.addEventListener("input", () => {
       setFilterText(filterInput.value);
-      applyFilter();
     });
 
     previewToggle.addEventListener("change", () => {
@@ -1257,11 +852,11 @@
     selectAllGroupsBtn.addEventListener("click", handleSelectAllGroupsClick);
     mergeAllGroupsBtn.addEventListener("click", handleMergeAllGroupsClick);
 
+    attachDelegatedListener(groupsEl);
+
     subscribe(() => {
       renderGroups();
-      updateSelectAllGroupsBtnLabel();
-      updateMergeAllGroupsBtnLabel();
-      updateDeleteSelectedBtnLabel();
+      updateAllButtonLabels();
     });
   </script>
 </body>
