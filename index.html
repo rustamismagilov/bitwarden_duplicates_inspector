@@ -592,14 +592,23 @@
 
   <div id="groups"></div>
 
-  <script>
-    let vaultData = null;
-    let items = [];
-    let duplicateGroups = [];
-    let selectedItems = new Set();
-    let itemsToMerge = new Set();
-    let itemsToDelete = new Set();
-    let showPreviews = false;
+  <script type="module">
+    import {
+      getState,
+      subscribe,
+      setVault,
+      clearVault,
+      toggleSelected,
+      selectAllInGroup,
+      selectAllGroups,
+      setMergeForGroup,
+      toggleMergeForAllGroups,
+      toggleDeleteForSelected,
+      setFilterText,
+      setShowPreviews,
+    } from "./src/state.js";
+    import { mergeSameAccountGroup, buildExport } from "./src/core/merge.js";
+    import { canonicalWebsiteKey } from "./src/core/dedup.js";
 
     const fileInput = document.getElementById("fileInput");
     const fileLabelText = document.getElementById("fileLabelText");
@@ -665,223 +674,8 @@
       return d.toLocaleString();
     }
 
-    function isIPv4(host) {
-      return /^(\d{1,3}\.){3}\d{1,3}$/.test(host);
-    }
-
-    function parseHostPort(uri) {
-      uri = String(uri || "").trim();
-      if (!uri) return null;
-      let rest = uri.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//, "");
-      if (!rest) return null;
-      let hostPort = rest.split("/")[0];
-      hostPort = hostPort.split("@").slice(-1)[0].toLowerCase();
-      if (!hostPort) return null;
-      const parts = hostPort.split(":");
-      const host = parts[0];
-      const port = parts[1] || null;
-      if (!host.includes(".") && !isIPv4(host)) return null;
-      return { host, port };
-    }
-
-    function baseDomain(host) {
-      const parts = host.split(".");
-      if (parts.length <= 2) return host;
-      return parts.slice(-2).join(".");
-    }
-
-    function canonicalWebsiteKey(item) {
-      if (item.type !== 1) return null;
-      const login = item.login || {};
-      const usernameRaw = String(login.username || "").trim();
-      let host = null;
-      let port = null;
-
-      const uris = Array.isArray(login.uris) ? login.uris : [];
-      for (const u of uris) {
-        const parsed = parseHostPort(u && u.uri);
-        if (parsed && parsed.host) {
-          host = parsed.host;
-          port = parsed.port;
-          break;
-        }
-      }
-
-      if (!host && usernameRaw.includes("@")) {
-        const emailDomain = usernameRaw.split("@", 2)[1].toLowerCase();
-        if (emailDomain && emailDomain.includes(".")) {
-          host = emailDomain;
-          port = null;
-        }
-      }
-
-      if (!host) {
-        const name = String(item.name || "").trim();
-        const m = name.match(/([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-        if (m) host = m[1].toLowerCase();
-      }
-
-      if (!host) return null;
-
-      if (isIPv4(host)) {
-        return port ? host + ":" + port : host;
-      } else {
-        return host;
-      }
-    }
-
-    function computeDuplicateGroups() {
-      const map = new Map();
-      items.forEach((item, idx) => {
-        const siteKey = canonicalWebsiteKey(item);
-        if (!siteKey) return;
-        const login = item.login || {};
-        const usernameRaw = String(login.username || "").trim();
-        if (!usernameRaw) return;
-        const usernameLower = usernameRaw.toLowerCase();
-        const key = siteKey + "|||" + usernameLower;
-        if (!map.has(key)) {
-          map.set(key, {
-            site: siteKey,
-            usernameLower,
-            usernameRaw,
-            indices: []
-          });
-        }
-        map.get(key).indices.push(idx);
-      });
-
-      duplicateGroups = Array.from(map.values()).filter(g => g.indices.length > 1);
-
-      duplicateGroups.sort((a, b) => {
-        if (a.site !== b.site) return a.site < b.site ? -1 : 1;
-        if (a.usernameLower !== b.usernameLower) return a.usernameLower < b.usernameLower ? -1 : 1;
-        return b.indices.length - a.indices.length;
-      });
-
-      itemsToMerge = new Set();
-      selectedItems = new Set();
-      itemsToDelete = new Set();
-    }
-
-    function mergeSameAccountGroup(groupItems) {
-      if (!groupItems.length) throw new Error("mergeSameAccountGroup called with empty list");
-
-      function revKey(it) {
-        return it.creationDate || it.revisionDate || "";
-      }
-
-      let baseSrc = groupItems[0];
-      for (const it of groupItems) {
-        if (revKey(it) < revKey(baseSrc)) baseSrc = it;
-      }
-
-      const base = JSON.parse(JSON.stringify(baseSrc));
-      const allPasswords = new Set();
-      const urisSeen = new Set();
-      const notesChunks = [];
-
-      function collectUris(item) {
-        const login = item.login || {};
-        const uris = Array.isArray(login.uris) ? login.uris : [];
-        for (const u of uris) {
-          const key = String(u.match ?? "") + "::" + String(u.uri ?? "");
-          urisSeen.add(key);
-        }
-      }
-
-      for (const it of groupItems) {
-        const login = it.login || {};
-        const pw = login.password || "";
-        if (pw) allPasswords.add(pw);
-        const notes = (it.notes || "").trim();
-        if (notes) notesChunks.push(notes);
-        collectUris(it);
-        if (it.favorite) base.favorite = true;
-      }
-
-      const baseLogin = base.login || (base.login = {});
-      if (!Array.isArray(baseLogin.uris)) baseLogin.uris = [];
-
-      const existing = new Set(
-        baseLogin.uris.map(u => String(u.match ?? "") + "::" + String(u.uri ?? ""))
-      );
-      for (const key of urisSeen) {
-        if (!existing.has(key)) {
-          const [matchPart, uriPart] = key.split("::");
-          const matchVal = matchPart === "" ? null : matchPart;
-          baseLogin.uris.push({ match: matchVal, uri: uriPart });
-        }
-      }
-
-      const mergedNotes = [];
-      if (base.notes) mergedNotes.push(base.notes);
-      for (const n of notesChunks) {
-        if (n && !mergedNotes.includes(n)) mergedNotes.push(n);
-      }
-
-      if (allPasswords.size > 1) {
-        const basePw = baseLogin.password || "";
-        const extraPw = Array.from(allPasswords).filter(p => p && p !== basePw);
-        if (extraPw.length) {
-          mergedNotes.push(
-            "Additional passwords seen in merged entries: " +
-            extraPw.join(", ")
-          );
-        }
-      }
-
-      if (mergedNotes.length) base.notes = mergedNotes.join("\n\n---\n");
-
-      return base;
-    }
-
-    function websiteKeyForItem(item) {
-      return canonicalWebsiteKey(item);
-    }
-
-    function shareUrisWithinSite(itemsArr) {
-      const sites = new Map();
-      itemsArr.forEach(it => {
-        const siteKey = websiteKeyForItem(it);
-        if (!siteKey) return;
-        if (!sites.has(siteKey)) sites.set(siteKey, []);
-        sites.get(siteKey).push(it);
-      });
-
-      for (const [site, siteItems] of sites.entries()) {
-        const unionMap = new Map();
-
-        for (const it of siteItems) {
-          const login = it.login || {};
-          const uris = Array.isArray(login.uris) ? login.uris : [];
-          for (const u of uris) {
-            const key = String(u.match ?? "") + "::" + String(u.uri ?? "");
-            if (!unionMap.has(key)) {
-              unionMap.set(key, {
-                match: u.match ?? null,
-                uri: u.uri ?? ""
-              });
-            }
-          }
-        }
-
-        for (const it of siteItems) {
-          const login = it.login || (it.login = {});
-          if (!Array.isArray(login.uris)) login.uris = [];
-          const existing = new Set(
-            login.uris.map(u => String(u.match ?? "") + "::" + String(u.uri ?? ""))
-          );
-          for (const [key, val] of unionMap.entries()) {
-            if (!existing.has(key)) {
-              login.uris.push({ match: val.match, uri: val.uri });
-            }
-          }
-        }
-      }
-    }
-
     function updateSelectAllGroupsBtnLabel() {
+      const { duplicateGroups, selectedItems } = getState();
       if (!duplicateGroups.length) {
         selectAllGroupsBtn.textContent = "Select all entries in all groups";
         selectAllGroupsBtn.disabled = true;
@@ -900,6 +694,7 @@
     }
 
     function updateMergeAllGroupsBtnLabel() {
+      const { duplicateGroups, itemsToMerge } = getState();
       if (!duplicateGroups.length) {
         mergeAllGroupsBtn.textContent = "Merge all entries in all groups";
         mergeAllGroupsBtn.disabled = true;
@@ -908,7 +703,7 @@
       mergeAllGroupsBtn.disabled = false;
       const allIndices = [];
       duplicateGroups.forEach(g => g.indices.forEach(i => allIndices.push(i)));
-      
+
       const allMerged = allIndices.every(i => itemsToMerge.has(i));
       mergeAllGroupsBtn.textContent = allMerged
         ? "Unmark all merges"
@@ -916,6 +711,7 @@
     }
     
     function updateDeleteSelectedBtnLabel() {
+      const { selectedItems, itemsToDelete } = getState();
       if (!selectedItems.size) {
         deleteSelectedBtn.textContent = "Mark selected for deletion";
         deleteSelectedBtn.disabled = true;
@@ -931,14 +727,15 @@
     }
 
     function generateGroupPreview(groupIndex) {
+      const { duplicateGroups, items, itemsToDelete, itemsToMerge } = getState();
       const g = duplicateGroups[groupIndex];
       const indices = g.indices;
-      
+
       const survivors = [];
       const toMerge = [];
-      
+
       indices.forEach(i => {
-        if (itemsToDelete.has(i)) return; 
+        if (itemsToDelete.has(i)) return;
         if (itemsToMerge.has(i)) toMerge.push(items[i]);
         else survivors.push(items[i]);
       });
@@ -987,6 +784,7 @@
       let checkHtml = "";
       
       if (!isPreview) {
+        const { itemsToDelete, itemsToMerge, selectedItems } = getState();
         const isDeleted = itemsToDelete.has(idx);
         const isMerged = itemsToMerge.has(idx);
         const isSelected = selectedItems.has(idx);
@@ -1020,6 +818,7 @@
     }
 
     function renderGroups() {
+      const { items, duplicateGroups, itemsToMerge, itemsToDelete, selectedItems, showPreviews } = getState();
       const totalItems = items.length;
       const groupsCount = duplicateGroups.length;
 
@@ -1030,14 +829,14 @@
 
       let finalExportCount = 0;
       let mergeReduction = 0;
-      
+
       duplicateGroups.forEach(g => {
-         const merging = g.indices.filter(i => itemsToMerge.has(i) && !itemsToDelete.has(i));
-         if (merging.length > 1) {
-            mergeReduction += (merging.length - 1);
-         }
+        const merging = g.indices.filter(i => itemsToMerge.has(i) && !itemsToDelete.has(i));
+        if (merging.length > 1) {
+          mergeReduction += (merging.length - 1);
+        }
       });
-      
+
       finalExportCount = totalItems - itemsToDelete.size - mergeReduction;
 
       if (!totalItems) {
@@ -1047,12 +846,12 @@
           `Found <strong>${groupsCount}</strong> duplicate group${groupsCount === 1 ? "" : "s"} ` +
           `involving <strong>${dupItemsCount}</strong> entries.<br>` +
           `<strong>${uniqueCount}</strong> entries have no duplicates.`;
-          
+
         const rightHtml = `<div style="text-align: right;">` +
           `Final Export: <strong>${finalExportCount}</strong> entries<br>` +
           `<small class="text-muted">(${itemsToDelete.size} deleted, ${mergeReduction} merged)</small>` +
           `</div>`;
-          
+
         summaryEl.innerHTML = `<div>${leftHtml}</div>${rightHtml}`;
       }
 
@@ -1060,7 +859,7 @@
       downloadBtn.disabled = !items.length;
 
       if (!groupsCount) {
-        hintEl.textContent = ""
+        hintEl.textContent = "";
         groupsEl.innerHTML = "";
         updateSelectAllGroupsBtnLabel();
         updateMergeAllGroupsBtnLabel();
@@ -1077,7 +876,7 @@
         const site = g.site;
         const usernameRaw = g.usernameRaw || g.usernameLower;
         const count = g.indices.length;
-        
+
         const selectedInGroup = g.indices.filter(i => selectedItems.has(i));
         const selectedCount = selectedInGroup.length;
         const allSelected = selectedCount === count && count > 0;
@@ -1216,9 +1015,8 @@
         cb.addEventListener("change", () => {
           const idx = parseInt(cb.getAttribute("data-index"), 10);
           if (Number.isNaN(idx)) return;
-          if (cb.checked) selectedItems.add(idx);
-          else selectedItems.delete(idx);
-          renderGroups();
+          toggleSelected(idx);
+          // subscriber handles re-render
         });
       });
 
@@ -1226,12 +1024,8 @@
         btn.addEventListener("click", () => {
           const idx = parseInt(btn.getAttribute("data-group-index"), 10);
           if (Number.isNaN(idx)) return;
-          const g = duplicateGroups[idx];
-          const indices = g.indices;
-          const allSelected = indices.every(i => selectedItems.has(i));
-          if (allSelected) indices.forEach(i => selectedItems.delete(i));
-          else indices.forEach(i => selectedItems.add(i));
-          renderGroups();
+          selectAllInGroup(idx);
+          // subscriber handles re-render
         });
       });
 
@@ -1239,37 +1033,38 @@
         btn.addEventListener("click", () => {
           const idx = parseInt(btn.getAttribute("data-group-index"), 10);
           if (Number.isNaN(idx)) return;
-          const g = duplicateGroups[idx];
+          const s = getState();
+          const g = s.duplicateGroups[idx];
           const indices = g.indices;
-          const selectedInGroup = indices.filter(i => selectedItems.has(i));
-          
+          const selectedInGroup = indices.filter(i => s.selectedItems.has(i));
+
           if (selectedInGroup.length > 0) {
-             const anyMerged = selectedInGroup.some(i => itemsToMerge.has(i));
-             if (anyMerged) {
-                selectedInGroup.forEach(i => {
-                   if (itemsToMerge.has(i)) {
-                      itemsToMerge.delete(i);
-                      // Keep checkbox checked for deleted
-                      if (!itemsToDelete.has(i)) selectedItems.delete(i);
-                   }
-                });
-             } else {
-                selectedInGroup.forEach(i => {
-                   itemsToMerge.add(i);
-                   itemsToDelete.delete(i);
-                   selectedItems.delete(i);
-                });
-             }
+            const anyMerged = selectedInGroup.some(i => s.itemsToMerge.has(i));
+            if (anyMerged) {
+              selectedInGroup.forEach(i => {
+                if (s.itemsToMerge.has(i)) {
+                  s.itemsToMerge.delete(i);
+                  // Keep checkbox checked for deleted
+                  if (!s.itemsToDelete.has(i)) s.selectedItems.delete(i);
+                }
+              });
+            } else {
+              selectedInGroup.forEach(i => {
+                s.itemsToMerge.add(i);
+                s.itemsToDelete.delete(i);
+                s.selectedItems.delete(i);
+              });
+            }
           } else {
-             const anyMerged = indices.some(i => itemsToMerge.has(i));
-             if (anyMerged) {
-                indices.forEach(i => itemsToMerge.delete(i));
-             } else {
-                indices.forEach(i => {
-                   itemsToMerge.add(i);
-                   itemsToDelete.delete(i);
-                });
-             }
+            const anyMerged = indices.some(i => s.itemsToMerge.has(i));
+            if (anyMerged) {
+              indices.forEach(i => s.itemsToMerge.delete(i));
+            } else {
+              indices.forEach(i => {
+                s.itemsToMerge.add(i);
+                s.itemsToDelete.delete(i);
+              });
+            }
           }
           renderGroups();
         });
@@ -1277,41 +1072,42 @@
 
       document.querySelectorAll(".btn-delete-group").forEach(btn => {
         btn.addEventListener("click", () => {
-           const idx = parseInt(btn.getAttribute("data-group-index"), 10);
-           if (Number.isNaN(idx)) return;
-           const g = duplicateGroups[idx];
-           const indices = g.indices;
-           const selectedInGroup = indices.filter(i => selectedItems.has(i));
-           
-           if (selectedInGroup.length > 0) {
-              const anyDeleted = selectedInGroup.some(i => itemsToDelete.has(i));
-              if (anyDeleted) {
-                 selectedInGroup.forEach(i => {
-                    if (itemsToDelete.has(i)) {
-                       itemsToDelete.delete(i);
-                       // Keep checkbox checked for merged
-                       if (!itemsToMerge.has(i)) selectedItems.delete(i);
-                    }
-                 });
-              } else {
-                 selectedInGroup.forEach(i => {
-                    itemsToDelete.add(i);
-                    itemsToMerge.delete(i);
-                    selectedItems.delete(i);
-                 });
-              }
-           } else {
-              const anyDeleted = indices.some(i => itemsToDelete.has(i));
-              if (anyDeleted) {
-                 indices.forEach(i => itemsToDelete.delete(i));
-              } else {
-                 indices.forEach(i => {
-                    itemsToDelete.add(i);
-                    itemsToMerge.delete(i);
-                 });
-              }
-           }
-           renderGroups();
+          const idx = parseInt(btn.getAttribute("data-group-index"), 10);
+          if (Number.isNaN(idx)) return;
+          const s = getState();
+          const g = s.duplicateGroups[idx];
+          const indices = g.indices;
+          const selectedInGroup = indices.filter(i => s.selectedItems.has(i));
+
+          if (selectedInGroup.length > 0) {
+            const anyDeleted = selectedInGroup.some(i => s.itemsToDelete.has(i));
+            if (anyDeleted) {
+              selectedInGroup.forEach(i => {
+                if (s.itemsToDelete.has(i)) {
+                  s.itemsToDelete.delete(i);
+                  // Keep checkbox checked for merged
+                  if (!s.itemsToMerge.has(i)) s.selectedItems.delete(i);
+                }
+              });
+            } else {
+              selectedInGroup.forEach(i => {
+                s.itemsToDelete.add(i);
+                s.itemsToMerge.delete(i);
+                s.selectedItems.delete(i);
+              });
+            }
+          } else {
+            const anyDeleted = indices.some(i => s.itemsToDelete.has(i));
+            if (anyDeleted) {
+              indices.forEach(i => s.itemsToDelete.delete(i));
+            } else {
+              indices.forEach(i => {
+                s.itemsToDelete.add(i);
+                s.itemsToMerge.delete(i);
+              });
+            }
+          }
+          renderGroups();
         });
       });
     }
@@ -1337,70 +1133,20 @@
       });
     }
 
-    filterInput.addEventListener("input", applyFilter);
-    
+    filterInput.addEventListener("input", () => {
+      setFilterText(filterInput.value);
+      applyFilter();
+    });
+
     previewToggle.addEventListener("change", () => {
-       showPreviews = previewToggle.checked;
-       renderGroups();
+      setShowPreviews(previewToggle.checked);
     });
 
     clearSearchBtn.addEventListener("click", () => {
       filterInput.value = "";
+      setFilterText("");
       applyFilter();
     });
-
-    function buildExport(options) {
-      if (!vaultData || !Array.isArray(items)) {
-        alert("Load a Bitwarden JSON export first.");
-        return null;
-      }
-
-      const itemCount = items.length;
-      const removed = new Array(itemCount).fill(false);
-      const resultItems = [];
-
-      duplicateGroups.forEach((g, groupIndex) => {
-          const indices = g.indices;
-          
-          const survivors = indices.filter(i => !itemsToDelete.has(i));
-          const toMerge = survivors.filter(i => itemsToMerge.has(i));
-          const leftOver = survivors.filter(i => !itemsToMerge.has(i));
-          
-          if (toMerge.length > 1) {
-             const merged = mergeSameAccountGroup(toMerge);
-             resultItems.push(merged);
-             toMerge.forEach(i => removed[i] = true);
-          }
-          
-          leftOver.forEach(i => {
-             resultItems.push(items[i]);
-             removed[i] = true;
-          });
-          
-          indices.forEach(i => {
-             if (itemsToDelete.has(i)) removed[i] = true;
-          });
-      });
-
-      for (let i = 0; i < itemCount; i++) {
-        if (itemsToDelete.has(i)) continue;
-        if (removed[i]) continue;
-        resultItems.push(items[i]);
-      }
-
-      shareUrisWithinSite(resultItems);
-
-      resultItems.forEach(it => {
-        if ("folderId" in it) it.folderId = null;
-      });
-
-      const outputData = Object.assign({}, vaultData, {
-        items: resultItems,
-        folders: []
-      });
-
-      return outputData;
-    }
 
     function downloadJson(data, filename) {
       const jsonStr = JSON.stringify(data, null, 2);
@@ -1416,72 +1162,47 @@
     }
 
     function handleDownload() {
-      const data = buildExport();
-      if (!data) return;
-      downloadJson(data, "bitwarden_merged.json");
+      try {
+        const s = getState();
+        if (!s.vaultData) { alert("Load a Bitwarden JSON export first."); return; }
+        const outputData = buildExport({
+          vaultData: s.vaultData,
+          items: s.items,
+          duplicateGroups: s.duplicateGroups,
+          itemsToMerge: s.itemsToMerge,
+          itemsToDelete: s.itemsToDelete,
+        });
+        downloadJson(outputData, "bitwarden_merged.json");
+      } catch (err) {
+        alert(`Could not build export: ${err.message}`);
+      }
     }
 
     function handleDeleteSelected() {
-      if (!selectedItems.size) {
+      if (!getState().selectedItems.size) {
         alert("No entries selected.");
         return;
       }
-      
-      const allSelectedAreDeleted = Array.from(selectedItems).every(i => itemsToDelete.has(i));
-      
-      selectedItems.forEach(i => {
-         if (allSelectedAreDeleted) {
-            itemsToDelete.delete(i);
-            if (!itemsToMerge.has(i)) selectedItems.delete(i);
-         } else {
-            itemsToDelete.add(i);
-            itemsToMerge.delete(i);
-            selectedItems.delete(i);
-         }
-      });
-      renderGroups();
+      toggleDeleteForSelected();
+      // subscriber handles re-render
     }
 
     function handleSelectAllGroupsClick() {
-      if (!duplicateGroups.length) return;
-      let allIndices = [];
-      duplicateGroups.forEach(g => g.indices.forEach(i => allIndices.push(i)));
-      if (!allIndices.length) return;
-      
-      const allSelected = allIndices.every(i => selectedItems.has(i));
-      if (allSelected) allIndices.forEach(i => selectedItems.delete(i));
-      else allIndices.forEach(i => selectedItems.add(i));
-      renderGroups();
+      if (!getState().duplicateGroups.length) return;
+      selectAllGroups();
+      // subscriber handles re-render
     }
 
     function handleMergeAllGroupsClick() {
-      if (!duplicateGroups.length) return;
-      const allIndices = [];
-      duplicateGroups.forEach(g => g.indices.forEach(i => allIndices.push(i)));
-      
-      const allMerged = allIndices.every(i => itemsToMerge.has(i));
-      
-      if (allMerged) {
-         allIndices.forEach(i => itemsToMerge.delete(i));
-      } else {
-         allIndices.forEach(i => {
-            itemsToMerge.add(i);
-            itemsToDelete.delete(i);
-         });
-      }
-      selectedItems.clear();
-      renderGroups();
+      if (!getState().duplicateGroups.length) return;
+      toggleMergeForAllGroups();
+      // subscriber handles re-render
     }
 
     function handleFileChange(e) {
       const file = e.target.files && e.target.files[0];
       if (!file) {
-        vaultData = null;
-        items = [];
-        duplicateGroups = [];
-        itemsToMerge = new Set();
-        selectedItems = new Set();
-        itemsToDelete = new Set();
+        clearVault();
         downloadBtn.disabled = true;
         deleteSelectedBtn.disabled = true;
         selectAllGroupsBtn.disabled = true;
@@ -1505,21 +1226,13 @@
           if (!data || !Array.isArray(data.items)) {
             throw new Error("JSON does not look like a Bitwarden export.");
           }
-          vaultData = data;
-          items = data.items;
-          computeDuplicateGroups();
-          renderGroups();
+          setVault(data);
           setStatus("");
           searchWrapper.style.display = "block";
         } catch (err) {
           console.error(err);
           setStatus("Error: " + err.message, true);
-          vaultData = null;
-          items = [];
-          duplicateGroups = [];
-          itemsToMerge = new Set();
-          selectedItems = new Set();
-          itemsToDelete = new Set();
+          clearVault();
           groupsEl.innerHTML = "";
           summaryEl.textContent = "";
           hintEl.textContent = "";
@@ -1543,6 +1256,13 @@
     deleteSelectedBtn.addEventListener("click", handleDeleteSelected);
     selectAllGroupsBtn.addEventListener("click", handleSelectAllGroupsClick);
     mergeAllGroupsBtn.addEventListener("click", handleMergeAllGroupsClick);
+
+    subscribe(() => {
+      renderGroups();
+      updateSelectAllGroupsBtnLabel();
+      updateMergeAllGroupsBtnLabel();
+      updateDeleteSelectedBtnLabel();
+    });
   </script>
 </body>
 </html>
