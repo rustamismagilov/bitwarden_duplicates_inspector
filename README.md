@@ -1,130 +1,86 @@
 # Bitwarden Duplicates Inspector
 
-**Bitwarden Duplicates Inspector** is a single-file HTML utility for cleaning, merging, and organizing your Bitwarden vault. It runs entirely in your web browser. **No data is ever sent to any server**, ensuring your passwords remain private and secure.
+Find and merge duplicate entries in your Bitwarden vault. Runs entirely in your browser. The JSON you load never leaves the page.
 
-## Table of Contents
+> [!NOTE]
+> **Browser-only**, no installation required. Tested on Chrome, Firefox, and Edge. You need a .json (plaintext) export of your Bitwarden vault.
 
-- [Features](https://www.google.com/search?q=%23features)
-- [Prerequisites](https://www.google.com/search?q=%23prerequisites)
-- [Getting Started](https://www.google.com/search?q=%23getting-started)
-- [Usage](https://www.google.com/search?q=%23usage)
-- [Privacy & Security](https://www.google.com/search?q=%23privacy--security)
-- [Output](https://www.google.com/search?q=%23output)
-- [Contributing](https://www.google.com/search?q=%23contributing)
-- [License](https://www.google.com/search?q=%23license)
+Since [Bitwarden has no built-in deduplication](https://community.bitwarden.com/t/duplicate-removal-tool-report-including-merge/648), I build this tool which runs as a single HTML file in your browser and the JSON you load is read locally.
 
-## Features
+## Quick start
 
-The **Bitwarden Duplicates Inspector** provides the following features to help you optimize your vault:
+1. Download [the latest release](https://github.com/rustamismagilov/bitwarden_duplicates_inspector/releases/latest/download/index.html).
+2. Open it in your browser. No install, no network needed.
+3. [Export your Bitwarden vault](https://bitwarden.com/help/export-your-data/) as **.json (plaintext)**.
+4. Click **Choose file** and select exported .json vault.
+5. Review the duplicate groups, mark what to merge or delete, click **Download updated export**.
+6. [Import the merged file back into Bitwarden](https://bitwarden.com/help/import-data/). Keep your original export around as a backup until you manually verified.
 
-- **100% Local Execution:** The tool is a single HTML file containing all necessary logic. It works offline and never transmits data over the internet.
+> [!WARNING]
+> Always keep your original export until you manually reviewed everything. Bitwarden's import is additive. If you re-import without first purging, you will end up with the old entries AND the merged ones. Either [purge the vault](https://bitwarden.com/help/product-faqs/#q-what-happens-when-i-purge-my-vault) first or manually delete the original entries.
 
-- **Smart Duplicate Detection:** Automatically groups entries that share the same website (host) and username.
+## How it works
 
-- **Intelligent Merging:**
-    - Consolidates unique URIs from multiple entries into one master entry.
-    - Preserves the "oldest" entry (based on creation date) to maintain history.
-    - Safely appends conflicting notes or passwords to the "Notes" field so no data is lost.
+### Detection
 
-- **Visual Inspection:** Review every duplicate group in a clear, card-based layout before taking any action.
+Two entries are grouped as duplicates when they share both:
 
-- **Search & Filter:** Quickly find specific accounts or sites using the built-in search bar.
+- the **canonical website key** (host extracted from a URI, falling back to email domain, falling back to a domain mentioned in the entry name), and
+- the **username** (case-insensitive)
 
-- **Selective Actions:** choose to merge specific groups of entries, merge all groups at once, or delete/merge selected entries manually.
+A few things worth knowing:
 
-- **Dark Mode:** Automatically respects your system's theme preference, with a manual toggle button.
+- `https://example.com`, `example.com`, and `http://example.com/login` all resolve to `example.com` and group together.
+- `www.example.com` does NOT match `example.com`. They often have different login flows, so this is deliberate. If you want to merge them, do it manually with the group buttons.
 
-## Prerequisites
+> [!WARNING]
+> Only login entries (type 1) are inspected. Secure notes, cards, and identities are passed through to the export untouched.
 
-Before you begin, ensure you have:
+### Merging
 
-- A modern web browser.
-- A Bitwarden JSON export (Unencrypted).
+When you mark a group for merge:
 
-## Getting Started
+- The entry with the oldest **creation date** is kept (`creationDate`, falling back to `revisionDate`).
+- All unique URIs from every entry in the group are collected onto the kept entry.
+- If passwords differ, the extras are appended to the kept entry's notes as `Additional passwords seen in merged entries: ...`. **You never silently lose a password.**
+- Notes from every entry are preserved.
+- Favorite status is preserved if any source was favorited.
 
-Since this is a client-side tool, there is no installation or Python requirement.
+### Group controls
 
-1. **Download** [`index.html` from the latest release](https://github.com/rustamismagilov/bitwarden_duplicates_inspector/releases/latest/download/index.html).
-2. **Open** `index.html` in your web browser.
-3. [**Export** you Bitwarden vault](https://bitwarden.com/help/export-your-data/).
-4. Click on **Choose file** and select your unencrypted `.json` export.
+Each group has three buttons. They are selection-aware:
 
-That's it! The tool is ready to use.
+- With no checkboxes ticked, the buttons act on the entire group.
+- With one or more checkboxes ticked, the buttons act only on those entries.
 
-## Quick Start
+| Button | Default action | When entries are selected |
+|---|---|---|
+| Select all in group | tick every entry | untick every entry, if all are selected |
+| Mark to merge entire group | mark every entry for merge | mark only selected (needs 2+ selected) |
+| Mark group for deletion | mark every entry for delete | mark only selected for delete |
 
-1. Click on the **Merge all entries in all groups** button.
-2. Click on the **Download updated export** button.
-3. [Import the new file into your Bitwarden vault](https://bitwarden.com/help/import-data/).
+The global buttons at the top (`Select all entries in all groups`, `Merge all entries in all groups`, `Mark selected for deletion`) work the same way across all groups at once.
 
-## Recommended Workflow
-1.  Use **"Enable result previews"** to see how merges will look.
-2.  Use **"Merge all entries in all groups"** as a starting point.
-3.  Scroll through the list. If you see a group you don't want to merge, click **"Unmark merge"** or use the checkboxes to refine the selection.
-4.  If you find junk entries, check them and click **"Mark selected for deletion"**.
-5.  Click **"Download updated export"**.
-6.  [Import the new file into your Bitwarden vault](https://bitwarden.com/help/import-data/).
+### Result preview
 
-> [!TIP] 
-> It is recommended to ["Purge" your Bitwarden vault](https://bitwarden.com/help/product-faqs/#q-what-happens-when-i-purge-my-vault) before importing the cleaned file to avoid creating *new* duplicates alongside the old ones. **Always keep a backup of your original export!**
+Toggle **Enable result previews** to see what each group will look like after the queued merges and deletions are applied. Groups with no actions queued show no preview, since the preview would just duplicate the main table.
 
-## Usage
+## Known issues
 
-The interface provides Global Controls (top bar) and Group Controls (inside each duplicate set).
-
-### Global Controls
-- **Select all entries in all groups:** Checks the selection box for every entry in the list.
-- **Merge all entries in all groups:** Automatically marks **every** entry in **every** group to be merged.
-    - ⤷ *If everything is already merged:* This button changes to **"Unmark all merges"** to undo the action.
-- **Mark selected for deletion:** Marks all currently checked items for deletion (highlighted in red).
-    - ⤷ *If selected items are already marked:* This button changes to **"Unmark selected for deletion"**.
-- **Download updated export:** Generates and downloads the cleaned `.json` file.
-- **Enable result previews:** A toggle that shows a preview row at the bottom of every group, visualizing exactly what the final merged entry will look like.
-
-### Group Controls
-Each duplicate group has its own set of buttons that change behavior based on your selection:
-
-1.  **Selection Button** (Grey)
-    * **Select all in group:** Checks all items in this specific group.
-    * **Unselect all in group:** Appears if all items in the group are currently checked.
-
-2.  **Merge Button** (Blue)
-    * **Mark to merge entire group:** Default state (no selection). Merges all items in the group into one.
-    * **Merge selected entries:** Appears when you select specific items. It allows you to merge a subset of duplicates (requires at least 2 items selected).
-    * **Unmark merge:** Appears if the items are already marked for merging. Clicking this reverts them to their original state.
-
-3.  **Delete Button** (Red)
-    * **Mark group for deletion:** Default state (no selection). Marks every item in the group for deletion.
-    > [!CAUTION]
-    > Advises about risks or negative outcomes of certain actions.
-    * **Mark selected for deletion:** Appears when you select specific items. Marks only those items for removal.
-    * **Unmark selected for deletion:** Appears if the items you selected are already marked for deletion.
-
-## Privacy & Security
-
-* **Offline Capable:** You can disconnect your internet connection before loading your JSON file. The tool will function perfectly.
-* **Zero-Knowledge:** No analytics, no tracking, and no external API calls.
-* **Source Code:** The source is organized under [`src/`](src/) and bundled into a single self-contained `index.html` at build time. You can inspect the source files directly, or open the released `index.html` in any text editor to verify its safety.
-
-## Output
-
-The tool generates new JSON file **`bitwarden_merged.json`**. A complete vault export containing your merged/cleaned entries ready for import.
+- `www.example.com` and `example.com` form separate duplicate groups. The tool deliberately does not strip `www.` because the two often serve different login flows. If your vault has both, merge them manually with the group buttons.
+- Bitwarden's import is additive. If you re-import without first purging, the old entries stay alongside the merged ones. Always purge first, or accept that you will need a second cleanup pass after import.
 
 ## Building from source
 
 ```sh
+git clone https://github.com/rustamismagilov/bitwarden_duplicates_inspector.git
+cd bitwarden_duplicates_inspector
 npm install
-npm test       # run unit tests (Vitest)
-npm run build  # produces dist/index.html
+npm run build
 ```
 
-The build inlines all JavaScript and CSS into a single self-contained HTML file. Source modules live under `src/`; tests under `tests/`.
-
-## Contributing
-
-Contributions are welcome! If you have suggestions for better duplicate detection logic or UI improvements, please open an issue or submit a pull request.
+Source lives under `src/` (pure logic in `src/core/`, state in `src/state.js`, UI in `src/ui/`). The build inlines all JavaScript and CSS into a single self-contained HTML file. Each tagged release runs the same build in CI and attaches the artifact to the GitHub release.
 
 ## License
 
-This project is licensed under the [MIT License](https://github.com/rustamismagilov/bitwarden_duplicates_inspector/blob/master/LICENSE).
+This project is licensed under the [MIT License](LICENSE).
