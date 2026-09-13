@@ -183,13 +183,17 @@ export function planGroup(items, group, itemsToMerge, itemsToDelete) {
   return { replaced, dropped };
 }
 
-// the entries a group turns into, in their original order
-// the preview uses this so it always matches the download
-export function resolveGroup(items, group, itemsToMerge, itemsToDelete) {
+// the entries a group turns into, in their original order, each with the index it comes from
+export function resolveGroupEntries(items, group, itemsToMerge, itemsToDelete) {
   const { replaced, dropped } = planGroup(items, group, itemsToMerge, itemsToDelete);
   return group.indices
     .filter(i => !dropped.has(i))
-    .map(i => replaced.get(i) ?? items[i]);
+    .map(i => ({ index: i, item: replaced.get(i) ?? items[i] }));
+}
+
+// the preview uses these so it always matches the download
+export function resolveGroup(items, group, itemsToMerge, itemsToDelete) {
+  return resolveGroupEntries(items, group, itemsToMerge, itemsToDelete).map(entry => entry.item);
 }
 
 export function buildExport({ vaultData, items, duplicateGroups, itemsToMerge, itemsToDelete }) {

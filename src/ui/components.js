@@ -19,7 +19,8 @@ export { escapeHtml, formatDate };
 // preview: a row of the result preview, which has no checkbox
 // sole: the only entry of its group left after deletions
 // mergeBase: the entry a queued merge keeps
-export function renderItemRow(state, it, idx, { preview = false, sole = false, mergeBase = false } = {}) {
+// key: identifies the row's notes so they can stay open across re-renders
+export function renderItemRow(state, it, idx, { preview = false, sole = false, mergeBase = false, key = `item-${idx}` } = {}) {
   const login = it.login || {};
   const uris = (Array.isArray(login.uris) ? login.uris : []).filter(Boolean);
   const name = it.name || "";
@@ -42,7 +43,7 @@ export function renderItemRow(state, it, idx, { preview = false, sole = false, m
   } else {
     const short = notes.length > 120 ? notes.slice(0, 120) + "…" : notes;
     notesHtml =
-      `<details><summary>${escapeHtml(short)}</summary>` +
+      `<details data-key="${escapeHtml(key)}"><summary>${escapeHtml(short)}</summary>` +
       `<pre>${escapeHtml(notes)}</pre></details>`;
   }
 
@@ -72,7 +73,7 @@ export function renderItemRow(state, it, idx, { preview = false, sole = false, m
     checkHtml = `<td class="col-select" style="text-align:center; color: var(--muted); font-weight:600;">Final Result</td>`;
   }
 
-  return `<tr class="${rowClass}" data-item-index="${idx}">
+  return `<tr class="${rowClass}">
     ${checkHtml}
     <td class="col-name">
       ${escapeHtml(name || "(no name)")}

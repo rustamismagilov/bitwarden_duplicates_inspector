@@ -1,12 +1,13 @@
 import { renderItemRow, escapeHtml } from "./components.js";
-import { resolveGroup, keptEntryIndex } from "../core/merge.js";
+import { resolveGroupEntries, keptEntryIndex } from "../core/merge.js";
 import { groupAction, isGroupVisible, selectAllAction, mergeAllAction, deleteSelectedAction } from "../state.js";
 
 function buildPreviewSectionHtml(state, groupIndex) {
   const g = state.duplicateGroups[groupIndex];
-  const previewItems = resolveGroup(state.items, g, state.itemsToMerge, state.itemsToDelete);
-  const rowsHtml = previewItems.length
-    ? previewItems.map((pit, pidx) => renderItemRow(state, pit, pidx, { preview: true })).join("")
+  const previewEntries = resolveGroupEntries(state.items, g, state.itemsToMerge, state.itemsToDelete);
+  // key open notes by the entry a row comes from, so they stay with it when rows shift
+  const rowsHtml = previewEntries.length
+    ? previewEntries.map(({ index, item }) => renderItemRow(state, item, index, { preview: true, key: `preview-${groupIndex}-${index}` })).join("")
     : `<tr><td colspan="5" class="preview-empty">Every entry in this group will be deleted. Nothing from it ends up in the export.</td></tr>`;
   return `<div class="preview-container">
     <div class="preview-arrow">▼ Result Preview</div>
@@ -226,10 +227,39 @@ export function applyFilter(state, refs) {
   renderControls(state, refs);
 }
 
+// rebuilding the list closes open notes and drops keyboard focus
+// so remember both before and put them back after
+function captureViewState(groupsEl) {
+  const open = [...groupsEl.querySelectorAll("details[open][data-key]")].map(d => d.dataset.key);
+  const active = document.activeElement;
+  const focus = active && groupsEl.contains(active) && active.dataset.action
+    ? { ...active.dataset }
+    : null;
+  return { open, focus };
+}
+
+function restoreViewState(groupsEl, { open, focus }) {
+  const openKeys = new Set(open);
+  groupsEl.querySelectorAll("details[data-key]").forEach(d => {
+    if (openKeys.has(d.dataset.key)) d.open = true;
+  });
+  if (!focus) return;
+  const match = [...groupsEl.querySelectorAll(`[data-action="${focus.action}"]`)].find(el =>
+    el.dataset.index === focus.index && el.dataset.groupIndex === focus.groupIndex
+  );
+  match?.focus({ preventScroll: true });
+}
+
+// the items the list was last rendered for, a new vault starts with everything closed
+let renderedItems = null;
+
 export function renderUI(state, refs) {
   renderSummary(state, refs);
 
   refs.downloadBtn.disabled = !state.items.length;
+  const viewState = renderedItems === state.items ? captureViewState(refs.groupsEl) : null;
   refs.groupsEl.innerHTML = state.duplicateGroups.length ? renderGroupsMarkup(state) : "";
+  if (viewState) restoreViewState(refs.groupsEl, viewState);
+  renderedItems = state.items;
   applyFilter(state, refs);
 }

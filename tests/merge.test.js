@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeSameAccountGroup, buildExport, resolveGroup } from "../src/core/merge.js";
+import { mergeSameAccountGroup, buildExport, resolveGroup, resolveGroupEntries } from "../src/core/merge.js";
 import { computeDuplicateGroups } from "../src/core/dedup.js";
 
 import simpleDupe from "./fixtures/simple-dupe.json" with { type: "json" };
@@ -301,6 +301,14 @@ describe("resolveGroup", () => {
       const preview = resolveGroup(items, groups[0], marks.itemsToMerge, marks.itemsToDelete);
       expect(preview).toEqual(exported.items);
     }
+  });
+
+  it("tells which entry each result comes from", () => {
+    const vault = structuredClone(simpleDupe);
+    const groups = computeDuplicateGroups(vault.items);
+    const entries = resolveGroupEntries(vault.items, groups[0], new Set([0, 1]), new Set());
+    expect(entries.map(e => [e.index, e.item.id])).toEqual([[0, "a1"]]);
+    expect(resolveGroupEntries(vault.items, groups[0], new Set(), new Set([0])).map(e => e.index)).toEqual([1]);
   });
 
   it("returns an empty list when every entry is deleted", () => {
