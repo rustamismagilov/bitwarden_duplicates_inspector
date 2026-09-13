@@ -116,6 +116,14 @@ function renderGroupMarkup(state, groupIndex) {
   htmlParts.push(`<div class="meta-line">
     <span class="count">${count} item${count === 1 ? "" : "s"}</span>`);
 
+  const concerns = state.groupConcerns[groupIndex];
+  if (concerns.includes("passkeys")) {
+    htmlParts.push(`<span class="tag tag-weak" title="These entries hold different passkeys. A Bitwarden login only uses one, so a merge keeps the passkeys of the oldest entry that has any and lists the others in notes, without their keys.">different passkeys</span>`);
+  }
+  if (concerns.includes("collections")) {
+    htmlParts.push(`<span class="tag tag-weak" title="These entries are in different collections. A merge puts the result in all of them, so everyone with access to any of those collections sees everything that was merged in.">different collections</span>`);
+  }
+
   if (g.matchedBy !== "uri") {
     const how = g.matchedBy === "email" ? "email domain" : "entry name";
     htmlParts.push(`<span class="tag tag-weak" title="Some entries have no URL for this site, so they were grouped by their ${how}. Check that they are the same account before merging.">matched by ${how}</span>`);

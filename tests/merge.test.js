@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeSameAccountGroup, buildExport, resolveGroup, resolveGroupEntries } from "../src/core/merge.js";
+import { mergeSameAccountGroup, buildExport, resolveGroup, resolveGroupEntries, mergeConcerns } from "../src/core/merge.js";
 import { computeDuplicateGroups } from "../src/core/dedup.js";
 
 import simpleDupe from "./fixtures/simple-dupe.json" with { type: "json" };
@@ -321,6 +321,43 @@ describe("mergeSameAccountGroup field conflicts", () => {
       entry("b", "2020-01-01", { collectionIds: [null] })
     ]);
     expect(merged.collectionIds).toEqual([null]);
+  });
+});
+
+describe("mergeConcerns", () => {
+  const login = (id, date, extra = {}, passkeys) => ({
+    id, type: 1, creationDate: date, ...extra,
+    login: { username: "u", password: "p", uris: [], fido2Credentials: passkeys }
+  });
+
+  it("finds nothing for ordinary duplicates", () => {
+    expect(mergeConcerns([login("a", "2019-01-01", { collectionIds: null }), login("b", "2020-01-01", { collectionIds: [null] })])).toEqual([]);
+  });
+
+  it("flags passkeys only when a merge would drop one", () => {
+    const one = { credentialId: "one", rpId: "x.com" };
+    const two = { credentialId: "two", rpId: "x.com" };
+    expect(mergeConcerns([login("a", "2019-01-01", {}, [one]), login("b", "2020-01-01", {}, [one])])).toEqual([]);
+    expect(mergeConcerns([login("a", "2019-01-01", {}, []), login("b", "2020-01-01", {}, [two])])).toEqual([]);
+    expect(mergeConcerns([login("a", "2019-01-01", {}, [one]), login("b", "2020-01-01", {}, [two])])).toEqual(["passkeys"]);
+  });
+
+  it("does not mistake different passkeys with an empty id for the same one", () => {
+    const blank = key => ({ credentialId: "", rpId: "x.com", keyValue: key });
+    expect(mergeConcerns([login("a", "2019-01-01", {}, [blank("k1")]), login("b", "2020-01-01", {}, [blank("k2")])])).toEqual(["passkeys"]);
+    const merged = mergeSameAccountGroup([login("a", "2019-01-01", {}, [blank("k1")]), login("b", "2020-01-01", {}, [blank("k2")])]);
+    expect(merged.notes).toBe("Passkeys dropped by the merge, register them again if you still need them:\nx.com");
+  });
+
+  it("flags entries that sit in different collections", () => {
+    expect(mergeConcerns([
+      login("a", "2019-01-01", { organizationId: "o", collectionIds: ["c1"] }),
+      login("b", "2020-01-01", { organizationId: "o", collectionIds: ["c2"] })
+    ])).toEqual(["collections"]);
+    expect(mergeConcerns([
+      login("a", "2019-01-01", { organizationId: "o", collectionIds: ["c1", "c2"] }),
+      login("b", "2020-01-01", { organizationId: "o", collectionIds: ["c2", "c1"] })
+    ])).toEqual([]);
   });
 });
 

@@ -27,6 +27,22 @@ function asArray(value) {
   return Array.isArray(value) ? value.filter(x => x != null) : [];
 }
 
+// bitwarden only uses the first passkey of a login and replaces the list when a new one is saved
+// so a merge keeps the passkeys of one entry, the oldest that has any, and drops the rest
+function splitPasskeys(oldestFirst) {
+  // an empty id would make unrelated passkeys look like the same one
+  const passkeyKey = c => (typeof c.credentialId === "string" && c.credentialId !== "" ? c.credentialId : JSON.stringify(c));
+  const owner = oldestFirst.find(it => asArray(it.login?.fido2Credentials).length);
+  if (!owner) return { owner: null, kept: [], dropped: [] };
+  const kept = asArray(owner.login.fido2Credentials);
+  const keptKeys = new Set(kept.map(passkeyKey));
+  const dropped = uniqueBy(
+    oldestFirst.filter(it => it !== owner).flatMap(it => asArray(it.login?.fido2Credentials)),
+    passkeyKey
+  ).filter(c => !keptKeys.has(passkeyKey(c)));
+  return { owner, kept, dropped };
+}
+
 // entries without a usable date sort last, so they never become the kept entry
 function entryTime(it) {
   const t = Date.parse(it.creationDate || it.revisionDate || "");
@@ -82,20 +98,9 @@ export function mergeSameAccountGroup(groupItems) {
   // these used to be dropped silently along with the other entries
   const others = oldestFirst.filter(it => it !== baseSrc);
 
-  // bitwarden only uses the first passkey of a login and replaces the list when a new one is saved
-  // so keep the passkeys of one entry and name the others in notes, without their keys
-  const passkeyKey = c => c.credentialId ?? JSON.stringify(c);
-  const passkeyOwner = oldestFirst.find(it => asArray(it.login?.fido2Credentials).length);
-  let droppedPasskeys = [];
-  if (passkeyOwner) {
-    const kept = asArray(passkeyOwner.login.fido2Credentials);
-    const keptKeys = new Set(kept.map(passkeyKey));
-    if (passkeyOwner !== baseSrc) baseLogin.fido2Credentials = structuredClone(kept);
-    droppedPasskeys = uniqueBy(
-      oldestFirst.filter(it => it !== passkeyOwner).flatMap(it => asArray(it.login?.fido2Credentials)),
-      passkeyKey
-    ).filter(c => !keptKeys.has(passkeyKey(c)));
-  }
+  // the dropped passkeys are only named in notes, without their keys
+  const { owner: passkeyOwner, kept: keptPasskeys, dropped: droppedPasskeys } = splitPasskeys(oldestFirst);
+  if (passkeyOwner && passkeyOwner !== baseSrc) baseLogin.fido2Credentials = structuredClone(keptPasskeys);
 
   const fields = uniqueBy(
     oldestFirst.flatMap(it => asArray(it.fields)),
@@ -180,6 +185,18 @@ export function mergeSameAccountGroup(groupItems) {
   if (joined !== baseNotes) base.notes = joined;
 
   return base;
+}
+
+// reasons to look at a group before merging it, beyond the usual password and notes handling
+// "passkeys": entries hold different passkeys and a merge keeps only one entry's
+// "collections": entries sit in different collections and a merge puts the result in all of them
+export function mergeConcerns(groupItems) {
+  const concerns = [];
+  const oldestFirst = [...groupItems].sort((a, b) => entryTime(a) - entryTime(b));
+  if (splitPasskeys(oldestFirst).dropped.length) concerns.push("passkeys");
+  const collectionSets = new Set(groupItems.map(it => JSON.stringify(asArray(it.collectionIds).sort())));
+  if (collectionSets.size > 1) concerns.push("collections");
+  return concerns;
 }
 
 // what the queued marks do to one group

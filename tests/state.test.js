@@ -242,7 +242,7 @@ describe("global buttons", () => {
     toggleMergeAll();
     expect(sorted(getState().itemsToMerge)).toEqual([0, 1, 2, 3, 4]);
     expect(getState().itemsToDelete.size).toBe(0);
-    expect(mergeAllAction(getState()).label).toBe("Unmark all groups matched by URL");
+    expect(mergeAllAction(getState()).label).toBe("Unmark all untagged groups");
     toggleMergeAll();
     expect(getState().itemsToMerge.size).toBe(0);
   });
@@ -266,7 +266,7 @@ describe("global buttons", () => {
     expect(sorted(getState().selectedItems)).toEqual([3, 4]);
     toggleMergeAll();
     expect(sorted(getState().itemsToMerge)).toEqual([3, 4]);
-    expect(mergeAllAction(getState()).label).toBe("Unmark visible groups matched by URL");
+    expect(mergeAllAction(getState()).label).toBe("Unmark visible untagged groups");
   });
 
   it("does not delete selected entries that the filter hides", () => {
@@ -296,11 +296,26 @@ describe("global buttons", () => {
       ["acme.io", "name"],
       ["gmail.com", "email"]
     ]);
-    expect(mergeAllAction(s).label).toBe("Merge all groups matched by URL");
+    expect(mergeAllAction(s).label).toBe("Merge all untagged groups");
     toggleMergeAll();
     expect(sorted(s.itemsToMerge)).toEqual([0, 1]);
     applyGroupAction(2, "merge");
     expect(sorted(s.itemsToMerge)).toEqual([0, 1, 2, 3]);
+  });
+
+  it("leaves groups with merge concerns out of merge all", () => {
+    const withPasskey = (id, credentialId) => ({
+      id, type: 1, name: id, creationDate: id === "p1" ? "2019-01-01" : "2020-01-01",
+      login: { username: "u", uris: [{ match: null, uri: "https://p.com" }], fido2Credentials: [{ credentialId, rpId: "p.com" }] }
+    });
+    setVault({
+      encrypted: false, folders: [],
+      items: [login("a1", "u", "https://a.com"), login("a2", "u", "https://a.com"), withPasskey("p1", "one"), withPasskey("p2", "two")]
+    });
+    const s = getState();
+    expect(s.groupConcerns).toEqual([[], ["passkeys"]]);
+    toggleMergeAll();
+    expect(sorted(s.itemsToMerge)).toEqual([0, 1]);
   });
 
   it("disables the buttons when there is nothing to act on", () => {

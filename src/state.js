@@ -1,4 +1,5 @@
 import { computeDuplicateGroups } from "./core/dedup.js";
+import { mergeConcerns } from "./core/merge.js";
 
 const subscribers = new Set();
 
@@ -11,6 +12,8 @@ const state = {
   selectedItems: new Set(),
   // lowercased text the filter looks through, one string per group
   groupSearchText: [],
+  // reasons to check a group before merging it, see mergeConcerns
+  groupConcerns: [],
   filterText: "",
   showPreviews: false,
 };
@@ -50,6 +53,7 @@ export function setVault(vaultData) {
   state.items = Array.isArray(vaultData?.items) ? vaultData.items : [];
   state.duplicateGroups = computeDuplicateGroups(state.items);
   state.groupSearchText = state.duplicateGroups.map(g => searchTextFor(state.items, g));
+  state.groupConcerns = state.duplicateGroups.map(g => mergeConcerns(g.indices.map(i => state.items[i])));
   state.filterText = "";
   resetMarks();
   notify();
@@ -60,6 +64,7 @@ export function clearVault() {
   state.items = [];
   state.duplicateGroups = [];
   state.groupSearchText = [];
+  state.groupConcerns = [];
   state.filterText = "";
   resetMarks();
   notify();
@@ -204,10 +209,11 @@ export function toggleSelectAll() {
 }
 
 // groups matched only by an email domain or an entry name are guesses
-// merge all leaves them alone, the user has to merge those one by one
+// and groups with merge concerns need a look first
+// merge all leaves both alone, the user has to merge those one by one
 export function mergeAllAction(s) {
   const targets = s.duplicateGroups.flatMap((g, gi) =>
-    isGroupVisible(s, gi) && g.matchedBy === "uri" ? g.indices : []
+    isGroupVisible(s, gi) && g.matchedBy === "uri" && !s.groupConcerns[gi].length ? g.indices : []
   );
   const all = allIn(s.itemsToMerge, targets);
   const scope = s.filterText ? "visible" : "all";
@@ -215,7 +221,7 @@ export function mergeAllAction(s) {
     targets,
     mark: !all,
     disabled: targets.length === 0,
-    label: `${all ? "Unmark" : "Merge"} ${scope} groups matched by URL`,
+    label: `${all ? "Unmark" : "Merge"} ${scope} untagged groups`,
   };
 }
 
