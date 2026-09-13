@@ -1,0 +1,93 @@
+{
+  "encrypted": false,
+  "folders": [
+    { "id": "f-work", "name": "Work" }
+  ],
+  "items": [
+    {
+      "passwordHistory": null,
+      "revisionDate": "2019-03-01T10:00:00.000Z",
+      "creationDate": "2019-03-01T10:00:00.000Z",
+      "deletedDate": null,
+      "id": "old-bare",
+      "organizationId": null,
+      "folderId": "f-work",
+      "type": 1,
+      "reprompt": 0,
+      "name": "GitHub",
+      "notes": null,
+      "favorite": false,
+      "login": {
+        "fido2Credentials": [],
+        "uris": [
+          { "match": null, "uri": "https://github.com/login" }
+        ],
+        "username": "octo@example.com",
+        "password": "old-pw",
+        "totp": null
+      },
+      "collectionIds": null
+    },
+    {
+      "passwordHistory": [
+        { "lastUsedDate": "2023-06-01T09:00:00.000Z", "password": "older-pw" }
+      ],
+      "revisionDate": "2024-05-05T12:00:00.000Z",
+      "creationDate": "2023-01-15T08:30:00.000Z",
+      "deletedDate": null,
+      "id": "new-with-2fa",
+      "organizationId": null,
+      "folderId": null,
+      "type": 1,
+      "reprompt": 1,
+      "name": "GitHub (2FA)",
+      "notes": "recovery codes are in the fields",
+      "favorite": true,
+      "fields": [
+        { "name": "Recovery codes", "value": "1111-2222 3333-4444", "type": 1, "linkedId": null }
+      ],
+      "login": {
+        "fido2Credentials": [
+          {
+            "credentialId": "cred-123",
+            "keyType": "public-key",
+            "keyAlgorithm": "ECDSA",
+            "keyCurve": "P-256",
+            "keyValue": "key-value",
+            "rpId": "github.com",
+            "userHandle": "handle",
+            "userName": "octo@example.com",
+            "counter": "0",
+            "rpName": "GitHub",
+            "userDisplayName": "octo",
+            "discoverable": "true",
+            "creationDate": "2024-05-05T12:00:00.000Z"
+          }
+        ],
+        "uris": [
+          { "match": 3, "uri": "https://github.com/sessions/two-factor" }
+        ],
+        "username": "Octo@example.com",
+        "password": "current-pw",
+        "totp": "otpauth://totp/GitHub:octo?secret=JBSWY3DPEHPK3PXP&issuer=GitHub"
+      },
+      "collectionIds": null
+    },
+    {
+      "passwordHistory": null,
+      "revisionDate": "2022-01-01T00:00:00.000Z",
+      "creationDate": "2022-01-01T00:00:00.000Z",
+      "deletedDate": null,
+      "id": "untouched-note",
+      "organizationId": null,
+      "folderId": "f-work",
+      "type": 2,
+      "reprompt": 0,
+      "name": "Office wifi",
+      "notes": "ssid: office",
+      "favorite": false,
+      "secureNote": { "type": 0 },
+      "collectionIds": null
+    }
+  ]
+}

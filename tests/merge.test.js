@@ -4,6 +4,7 @@ import { computeDuplicateGroups } from "../src/core/dedup.js";
 
 import simpleDupe from "./fixtures/simple-dupe.json" with { type: "json" };
 import conflictingPwd from "./fixtures/conflicting-passwords.json" with { type: "json" };
+import realisticDupes from "./fixtures/realistic-dupes.json" with { type: "json" };
 import bitwardenSample from "./fixtures/bitwarden-sample.json" with { type: "json" };
 
 describe("mergeSameAccountGroup", () => {
@@ -137,6 +138,146 @@ describe("mergeSameAccountGroup", () => {
     ];
     const merged = mergeSameAccountGroup(items);
     expect((merged.notes.match(/same note/g) || []).length).toBe(1);
+  });
+});
+
+describe("mergeSameAccountGroup on a realistic export", () => {
+  const [oldBare, newWith2fa] = realisticDupes.items;
+  const sourceSnapshot = structuredClone([oldBare, newWith2fa]);
+  const merged = mergeSameAccountGroup([oldBare, newWith2fa]);
+
+  it("keeps the oldest entry as the base", () => {
+    expect(merged.id).toBe("old-bare");
+    expect(merged.folderId).toBe("f-work");
+    expect(merged.login.password).toBe("old-pw");
+  });
+
+  it("carries the TOTP secret over from the newer entry", () => {
+    expect(merged.login.totp).toBe(newWith2fa.login.totp);
+  });
+
+  it("carries passkeys over from the newer entry", () => {
+    expect(merged.login.fido2Credentials).toEqual(newWith2fa.login.fido2Credentials);
+  });
+
+  it("carries custom fields over from the newer entry", () => {
+    expect(merged.fields).toEqual(newWith2fa.fields);
+  });
+
+  it("carries password history over from the newer entry", () => {
+    expect(merged.passwordHistory).toEqual(newWith2fa.passwordHistory);
+  });
+
+  it("keeps master password reprompt when any merged entry had it", () => {
+    expect(merged.reprompt).toBe(1);
+  });
+
+  it("keeps URI match types from the newer entry", () => {
+    expect(merged.login.uris).toEqual([
+      { match: null, uri: "https://github.com/login" },
+      { match: 3, uri: "https://github.com/sessions/two-factor" }
+    ]);
+  });
+
+  it("keeps the newer password and notes in notes", () => {
+    expect(merged.notes).toBe(
+      "recovery codes are in the fields\n\n---\nAdditional passwords seen in merged entries:\ncurrent-pw"
+    );
+  });
+
+  it("does not modify the source entries", () => {
+    expect([oldBare, newWith2fa]).toEqual(sourceSnapshot);
+    expect(oldBare.login.totp).toBeNull();
+  });
+});
+
+describe("mergeSameAccountGroup field conflicts", () => {
+  const entry = (id, date, extra = {}, login = {}) => ({
+    id, type: 1, creationDate: date, revisionDate: date, ...extra,
+    login: { username: "u", password: "p", uris: [], ...login }
+  });
+
+  it("keeps the kept entry's TOTP and lists the others in notes", () => {
+    const merged = mergeSameAccountGroup([
+      entry("a", "2019-01-01", {}, { totp: "otpauth://totp/A" }),
+      entry("b", "2020-01-01", {}, { totp: "otpauth://totp/B" }),
+      entry("c", "2021-01-01", {}, { totp: "otpauth://totp/A" })
+    ]);
+    expect(merged.login.totp).toBe("otpauth://totp/A");
+    expect(merged.notes).toBe("Additional TOTP secrets seen in merged entries:\notpauth://totp/B");
+  });
+
+  it("unions custom fields without repeating identical ones", () => {
+    const pin = { name: "PIN", value: "1234", type: 1, linkedId: null };
+    const merged = mergeSameAccountGroup([
+      entry("a", "2019-01-01", { fields: [pin] }),
+      entry("b", "2020-01-01", { fields: [{ ...pin }, { name: "PIN", value: "9999", type: 1, linkedId: null }] })
+    ]);
+    expect(merged.fields.map(f => f.value)).toEqual(["1234", "9999"]);
+  });
+
+  it("merges password history newest first with one entry per password", () => {
+    const merged = mergeSameAccountGroup([
+      entry("a", "2019-01-01", { passwordHistory: [{ lastUsedDate: "2019-06-01T00:00:00.000Z", password: "x" }] }),
+      entry("b", "2020-01-01", { passwordHistory: [
+        { lastUsedDate: "2021-06-01T00:00:00.000Z", password: "y" },
+        { lastUsedDate: "2020-06-01T00:00:00.000Z", password: "x" }
+      ] })
+    ]);
+    expect(merged.passwordHistory).toEqual([
+      { lastUsedDate: "2021-06-01T00:00:00.000Z", password: "y" },
+      { lastUsedDate: "2020-06-01T00:00:00.000Z", password: "x" }
+    ]);
+  });
+
+  it("keeps the 5 newest history entries and moves older ones to notes", () => {
+    const h = (pw, day) => ({ lastUsedDate: `2020-01-${String(day).padStart(2, "0")}T00:00:00.000Z`, password: pw });
+    const merged = mergeSameAccountGroup([
+      entry("a", "2019-01-01", { passwordHistory: [h("h1", 1), h("h3", 3), h("h5", 5), h("h7", 7)] }),
+      entry("b", "2020-01-01", { passwordHistory: [h("h2", 2), h("h4", 4), h("h6", 6)] })
+    ]);
+    expect(merged.passwordHistory.map(x => x.password)).toEqual(["h7", "h6", "h5", "h4", "h3"]);
+    expect(merged.notes).toBe("Older password history from merged entries:\nh2\nh1");
+  });
+
+  it("keeps the passkeys of one entry and names the others in notes, without their keys", () => {
+    const merged = mergeSameAccountGroup([
+      entry("a", "2019-01-01", {}, { fido2Credentials: [{ credentialId: "one", rpId: "x.com", keyValue: "k1" }] }),
+      entry("b", "2020-01-01", {}, { fido2Credentials: [
+        { credentialId: "one", rpId: "x.com", keyValue: "k1" },
+        { credentialId: "two", rpId: "x.com", userName: "u", creationDate: "2024-05-05T00:00:00.000Z", keyValue: "secret-key" }
+      ] })
+    ]);
+    expect(merged.login.fido2Credentials.map(c => c.credentialId)).toEqual(["one"]);
+    expect(merged.notes).toBe("Passkeys dropped by the merge, register them again if you still need them:\nx.com, u, created 2024-05-05");
+    expect(merged.notes).not.toContain("secret-key");
+  });
+
+  it("takes the passkeys of the oldest entry that has any when the kept entry has none", () => {
+    const merged = mergeSameAccountGroup([
+      entry("a", "2019-01-01", {}, { fido2Credentials: [] }),
+      entry("b", "2020-01-01", {}, { fido2Credentials: [{ credentialId: "b1", rpId: "x.com" }] }),
+      entry("c", "2021-01-01", {}, { fido2Credentials: [{ credentialId: "c1", rpId: "x.com" }] })
+    ]);
+    expect(merged.id).toBe("a");
+    expect(merged.login.fido2Credentials.map(c => c.credentialId)).toEqual(["b1"]);
+    expect(merged.notes).toBe("Passkeys dropped by the merge, register them again if you still need them:\nx.com");
+  });
+
+  it("unions collection ids and ignores the null placeholder", () => {
+    const merged = mergeSameAccountGroup([
+      entry("a", "2019-01-01", { organizationId: "o1", collectionIds: ["c1"] }),
+      entry("b", "2020-01-01", { organizationId: "o1", collectionIds: [null, "c2", "c1"] })
+    ]);
+    expect(merged.collectionIds).toEqual(["c1", "c2"]);
+  });
+
+  it("leaves the null collection placeholder alone when there is nothing to add", () => {
+    const merged = mergeSameAccountGroup([
+      entry("a", "2019-01-01", { collectionIds: [null] }),
+      entry("b", "2020-01-01", { collectionIds: [null] })
+    ]);
+    expect(merged.collectionIds).toEqual([null]);
   });
 });
 
