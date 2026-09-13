@@ -62,7 +62,18 @@ describe("mergeSameAccountGroup", () => {
     expect(merged.favorite).toBe(true);
   });
 
-  it("does NOT change notes when all passwords are identical", () => {
+  it("keeps the same URI with different match rules as separate URIs", () => {
+    const merged = mergeSameAccountGroup([
+      { id: "a", type: 1, creationDate: "2019-01-01", login: { username: "u", uris: [{ match: null, uri: "https://a.com" }] } },
+      { id: "b", type: 1, creationDate: "2020-01-01", login: { username: "u", uris: [{ match: 3, uri: "https://a.com" }, { match: null, uri: "https://a.com" }] } }
+    ]);
+    expect(merged.login.uris).toEqual([
+      { match: null, uri: "https://a.com" },
+      { match: 3, uri: "https://a.com" }
+    ]);
+  });
+
+  it("adds no password section to notes when all passwords are identical", () => {
     const merged = mergeSameAccountGroup(simpleDupe.items);
     expect(merged.notes).toBe("secondary");
     expect(merged.notes).not.toMatch(/Additional passwords/);

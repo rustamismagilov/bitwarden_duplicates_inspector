@@ -68,9 +68,10 @@ describe("parseHostPort", () => {
 });
 
 describe("canonicalWebsiteKey", () => {
-  it("returns null for non-login types", () => {
-    expect(canonicalWebsiteKey({ type: 2, name: "note" })).toBeNull();
-    expect(canonicalWebsiteKey({ type: 3, name: "card" })).toBeNull();
+  it("returns null for non-login types, even when they carry login data", () => {
+    const loginData = { username: "u@github.com", uris: [{ uri: "https://github.com" }] };
+    expect(canonicalWebsiteKey({ type: 2, name: "notes for github.com", login: loginData })).toBeNull();
+    expect(canonicalWebsiteKey({ type: 3, name: "card for github.com", login: loginData })).toBeNull();
   });
 
   it("prefers a web address over an app link", () => {
@@ -150,6 +151,8 @@ describe("computeDuplicateGroups", () => {
     const groups = computeDuplicateGroups(mixedTypes.items);
     expect(groups).toHaveLength(1);
     expect(groups[0].indices).toEqual([0, 1]);
+    const lookalike = { type: 2, name: "github.com", login: { username: "u", uris: [{ uri: "https://github.com" }] } };
+    expect(computeDuplicateGroups([lookalike, { ...lookalike }])).toEqual([]);
   });
 
   it("groups the three foo.com spellings and leaves www.foo.com out", () => {
@@ -189,18 +192,13 @@ describe("computeDuplicateGroups", () => {
     expect(computeDuplicateGroups(bitwardenSample.items)).toEqual([]);
   });
 
-  it("sorts groups: site asc, then username asc, then size desc", () => {
-    const items = [
-      { id: "1", type: 1, name: "B", creationDate: "1", revisionDate: "1",
-        login: { username: "u@b.com", uris: [{ uri: "https://b.com" }] } },
-      { id: "2", type: 1, name: "B", creationDate: "2", revisionDate: "2",
-        login: { username: "u@b.com", uris: [{ uri: "https://b.com" }] } },
-      { id: "3", type: 1, name: "A", creationDate: "1", revisionDate: "1",
-        login: { username: "u@a.com", uris: [{ uri: "https://a.com" }] } },
-      { id: "4", type: 1, name: "A", creationDate: "2", revisionDate: "2",
-        login: { username: "u@a.com", uris: [{ uri: "https://a.com" }] } }
-    ];
+  it("sorts groups by site, then by username", () => {
+    const pair = (site, user) => [1, 2].map(n => ({
+      id: `${site}-${user}-${n}`, type: 1, name: site, creationDate: String(n), revisionDate: String(n),
+      login: { username: user, uris: [{ uri: `https://${site}` }] }
+    }));
+    const items = [...pair("b.com", "zed"), ...pair("a.com", "zed"), ...pair("b.com", "Amy"), ...pair("a.com", "bob")];
     const groups = computeDuplicateGroups(items);
-    expect(groups.map(g => g.site)).toEqual(["a.com", "b.com"]);
+    expect(groups.map(g => `${g.site} ${g.usernameLower}`)).toEqual(["a.com bob", "a.com zed", "b.com amy", "b.com zed"]);
   });
 });

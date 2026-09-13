@@ -43,6 +43,11 @@ describe("renderItemRow", () => {
     expect(html).toContain('aria-label="Select &lt;img src=x onerror=alert(2)&gt;"');
   });
 
+  it("skips empty slots in the URI list instead of crashing", () => {
+    const html = renderItemRow(emptyState(), { type: 1, name: "x", login: { uris: [null, { uri: "https://a.com" }] } }, 0);
+    expect(html).toContain("<li>https://a.com</li>");
+  });
+
   it("renders a checkbox for the main table and none for the preview", () => {
     expect(renderItemRow(emptyState(), hostile, 3)).toContain('data-action="toggle-select" data-index="3"');
     expect(renderItemRow(emptyState(), hostile, 3, { preview: true })).not.toContain("toggle-select");

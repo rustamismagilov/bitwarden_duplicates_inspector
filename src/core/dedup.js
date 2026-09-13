@@ -112,10 +112,10 @@ export function computeDuplicateGroups(items) {
       matchedBy: sources.has("name") ? "name" : sources.has("email") ? "email" : "uri"
     }));
 
+  // site and username together are unique per group, so they fully decide the order
   groups.sort((a, b) => {
     if (a.site !== b.site) return a.site < b.site ? -1 : 1;
-    if (a.usernameLower !== b.usernameLower) return a.usernameLower < b.usernameLower ? -1 : 1;
-    return b.indices.length - a.indices.length;
+    return a.usernameLower < b.usernameLower ? -1 : a.usernameLower > b.usernameLower ? 1 : 0;
   });
 
   return groups;
