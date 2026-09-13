@@ -160,6 +160,18 @@ describe("group merge and delete buttons", () => {
     expect(sorted(getState().selectedItems)).toEqual([1]);
   });
 
+  it("lets one ticked entry join an entry that is already queued for merge", () => {
+    toggleSelectGroup(1);
+    applyGroupAction(1, "merge");
+    toggleSelected(4);
+    applyGroupAction(1, "merge");
+    expect(sorted(getState().itemsToMerge)).toEqual([3]);
+    toggleSelected(4);
+    expect(groupAction(getState(), 1, "merge")).toMatchObject({ disabled: false, label: "Merge selected entries" });
+    applyGroupAction(1, "merge");
+    expect(sorted(getState().itemsToMerge)).toEqual([3, 4]);
+  });
+
   it("unmarks only the ticked entries that were marked", () => {
     applyGroupAction(0, "delete");
     toggleSelected(1);

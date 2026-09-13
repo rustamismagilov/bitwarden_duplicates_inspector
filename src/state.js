@@ -156,8 +156,9 @@ export function groupAction(s, groupIndex, kind) {
     if (markedSelected.length) {
       return { mark: false, targets: markedSelected, clearSelection: true, disabled: false, label: labels.unmarkSelected };
     }
-    // merging a single entry would do nothing
-    const disabled = kind === "merge" && selected.length < 2;
+    // a merge needs two entries, and the ones already queued for merge in this group count too
+    const alreadyMerging = g.indices.filter(i => s.itemsToMerge.has(i) && !s.itemsToDelete.has(i));
+    const disabled = kind === "merge" && selected.length + alreadyMerging.length < 2;
     return { mark: true, targets: selected, clearSelection: true, disabled, label: labels.markSelected };
   }
 
