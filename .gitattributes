@@ -1,2 +1,2 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# keep lf everywhere, so a build on windows matches the release byte for byte
+* text=auto eol=lf
