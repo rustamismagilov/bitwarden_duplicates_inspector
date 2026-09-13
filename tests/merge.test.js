@@ -26,6 +26,36 @@ describe("mergeSameAccountGroup", () => {
     ]);
   });
 
+  it("keeps numeric match values on merged URIs", () => {
+    const merged = mergeSameAccountGroup([
+      { id: "a", type: 1, creationDate: "2020-01-01", login: { username: "u", uris: [{ match: 0, uri: "https://a.com" }] } },
+      { id: "b", type: 1, creationDate: "2021-01-01", login: { username: "u", uris: [{ match: 3, uri: "https://a.com/login" }, { match: null, uri: "https://a.com/x" }] } }
+    ]);
+    expect(merged.login.uris).toEqual([
+      { match: 0, uri: "https://a.com" },
+      { match: 3, uri: "https://a.com/login" },
+      { match: null, uri: "https://a.com/x" }
+    ]);
+  });
+
+  it("keeps URIs that contain a double colon intact", () => {
+    const merged = mergeSameAccountGroup([
+      { id: "a", type: 1, creationDate: "2020-01-01", login: { username: "u", uris: [{ match: null, uri: "https://nas.lan" }] } },
+      { id: "b", type: 1, creationDate: "2021-01-01", login: { username: "u", uris: [{ match: null, uri: "https://[fe80::1]:5001/login" }] } }
+    ]);
+    expect(merged.login.uris.map(u => u.uri)).toEqual(["https://nas.lan", "https://[fe80::1]:5001/login"]);
+  });
+
+  it("does not share URI objects with the source entries", () => {
+    const items = [
+      { id: "a", type: 1, creationDate: "2020-01-01", login: { username: "u", uris: [] } },
+      { id: "b", type: 1, creationDate: "2021-01-01", login: { username: "u", uris: [{ match: null, uri: "https://a.com" }] } }
+    ];
+    const merged = mergeSameAccountGroup(items);
+    merged.login.uris[0].uri = "changed";
+    expect(items[1].login.uris[0].uri).toBe("https://a.com");
+  });
+
   it("sets favorite to true when any source entry was favorited", () => {
     const merged = mergeSameAccountGroup(simpleDupe.items);
     expect(merged.favorite).toBe(true);

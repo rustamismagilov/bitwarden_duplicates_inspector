@@ -1,3 +1,8 @@
+// two uris are the same when both the match rule and the address agree
+function uriKey(u) {
+  return JSON.stringify([u.match ?? null, u.uri ?? ""]);
+}
+
 export function mergeSameAccountGroup(groupItems) {
   if (!groupItems.length) throw new Error("mergeSameAccountGroup called with empty list");
 
@@ -12,17 +17,7 @@ export function mergeSameAccountGroup(groupItems) {
 
   const base = JSON.parse(JSON.stringify(baseSrc));
   const allPasswords = new Set();
-  const urisSeen = new Set();
   const notesChunks = [];
-
-  function collectUris(item) {
-    const login = item.login || {};
-    const uris = Array.isArray(login.uris) ? login.uris : [];
-    for (const u of uris) {
-      const key = String(u.match ?? "") + "::" + String(u.uri ?? "");
-      urisSeen.add(key);
-    }
-  }
 
   for (const it of groupItems) {
     const login = it.login || {};
@@ -30,21 +25,23 @@ export function mergeSameAccountGroup(groupItems) {
     if (pw) allPasswords.add(pw);
     const notes = (it.notes || "").trim();
     if (notes) notesChunks.push(notes);
-    collectUris(it);
     if (it.favorite) base.favorite = true;
   }
 
   const baseLogin = base.login || (base.login = {});
   if (!Array.isArray(baseLogin.uris)) baseLogin.uris = [];
 
-  const existing = new Set(
-    baseLogin.uris.map(u => String(u.match ?? "") + "::" + String(u.uri ?? ""))
-  );
-  for (const key of urisSeen) {
-    if (!existing.has(key)) {
-      const [matchPart, uriPart] = key.split("::");
-      const matchVal = matchPart === "" ? null : matchPart;
-      baseLogin.uris.push({ match: matchVal, uri: uriPart });
+  // copy the uri objects as they are
+  // rebuilding them from a string key turned match numbers into strings
+  const urisSeen = new Set(baseLogin.uris.filter(Boolean).map(uriKey));
+  for (const it of groupItems) {
+    const uris = Array.isArray(it.login?.uris) ? it.login.uris : [];
+    for (const u of uris) {
+      if (!u) continue;
+      const key = uriKey(u);
+      if (urisSeen.has(key)) continue;
+      urisSeen.add(key);
+      baseLogin.uris.push(structuredClone(u));
     }
   }
 
