@@ -65,7 +65,7 @@ export function clearVault() {
   notify();
 }
 
-// no notify here either
+// no notify here
 // filtering only hides groups, so the page updates in place
 export function setFilterText(text) {
   state.filterText = String(text || "").trim().toLowerCase();
@@ -75,10 +75,9 @@ export function isGroupVisible(s, groupIndex) {
   return !s.filterText || s.groupSearchText[groupIndex].includes(s.filterText);
 }
 
-// no notify here
-// previews get patched into the page in place, a full re-render lags on large vaults
 export function setShowPreviews(show) {
   state.showPreviews = Boolean(show);
+  notify();
 }
 
 export function hasQueuedChanges(s) {

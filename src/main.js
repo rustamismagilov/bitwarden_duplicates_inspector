@@ -14,7 +14,7 @@ import {
 import { buildExport } from "./core/merge.js";
 import { parseVaultExport } from "./core/vault.js";
 import { findOversizedFields } from "./core/limits.js";
-import { renderUI, applyFilter, togglePreviewSections } from "./ui/render.js";
+import { renderUI, applyFilter } from "./ui/render.js";
 import { attachDelegatedListener } from "./ui/events.js";
 import { initTheme } from "./ui/theme.js";
 
@@ -179,7 +179,6 @@ clearSearchBtn.addEventListener("click", () => {
 
 previewToggle.addEventListener("change", () => {
   setShowPreviews(previewToggle.checked);
-  togglePreviewSections(getState(), refs);
 });
 
 fileInput.addEventListener("change", handleFileChange);
