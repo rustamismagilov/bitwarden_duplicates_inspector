@@ -127,6 +127,15 @@ describe("mergeSameAccountGroup", () => {
     expect(merged.notes).toBe("pin 1234\n");
   });
 
+  it("keeps notes that are not text as text instead of crashing", () => {
+    const merged = mergeSameAccountGroup([
+      { id: "a", type: 1, creationDate: "2019-01-01", notes: 1234, login: { username: "u", password: "p", uris: [] } },
+      { id: "b", type: 1, creationDate: "2020-01-01", notes: "real note", login: { username: "u", password: "p", uris: [] } },
+      { id: "c", type: 1, creationDate: "2021-01-01", notes: { pin: 1 }, login: { username: "u", password: "p", uris: [] } }
+    ]);
+    expect(merged.notes).toBe('1234\n\n---\nreal note\n\n---\n{"pin":1}');
+  });
+
   it("does not duplicate identical note chunks", () => {
     const items = [
       { id: "a", type: 1, name: "x", creationDate: "2020-01-01", revisionDate: "2020-01-01",

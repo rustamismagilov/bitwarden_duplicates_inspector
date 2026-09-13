@@ -1,3 +1,5 @@
+import { asText } from "../core/merge.js";
+
 function escapeHtml(str) {
   return String(str ?? "")
     .replace(/&/g, "&amp;")
@@ -26,7 +28,7 @@ export function renderItemRow(state, it, idx, { preview = false, sole = false, m
   const name = it.name || "";
   const created = it.creationDate || "";
   const revised = it.revisionDate || "";
-  const notes = it.notes || "";
+  const notes = asText(it.notes);
 
   let urisHtml = "";
   if (uris.length === 0) {

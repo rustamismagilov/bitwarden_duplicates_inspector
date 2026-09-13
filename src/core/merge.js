@@ -16,6 +16,13 @@ function uniqueBy(list, keyFn) {
   });
 }
 
+// hand edited or third party files can hold numbers or objects where bitwarden writes text
+// turn those into text instead of losing them
+export function asText(value) {
+  if (value == null) return "";
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
 function asArray(value) {
   return Array.isArray(value) ? value.filter(x => x != null) : [];
 }
@@ -49,7 +56,7 @@ export function mergeSameAccountGroup(groupItems) {
     const login = it.login || {};
     const pw = login.password || "";
     if (pw) allPasswords.add(pw);
-    const notes = (it.notes || "").trim();
+    const notes = asText(it.notes).trim();
     if (notes) notesChunks.push(notes);
     if (it.favorite) base.favorite = true;
   }
@@ -139,7 +146,7 @@ export function mergeSameAccountGroup(groupItems) {
   }
 
   // compare trimmed notes so trailing whitespace does not repeat a note
-  const baseNotes = (base.notes || "").trim();
+  const baseNotes = asText(base.notes).trim();
   const mergedNotes = baseNotes ? [baseNotes] : [];
   for (const n of notesChunks) {
     if (!mergedNotes.includes(n)) mergedNotes.push(n);
