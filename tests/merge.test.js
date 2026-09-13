@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeSameAccountGroup, shareUrisWithinSite, buildExport } from "../src/core/merge.js";
+import { mergeSameAccountGroup, buildExport } from "../src/core/merge.js";
 import { computeDuplicateGroups } from "../src/core/dedup.js";
 
 import simpleDupe from "./fixtures/simple-dupe.json" with { type: "json" };
@@ -60,30 +60,6 @@ describe("mergeSameAccountGroup", () => {
     ];
     const merged = mergeSameAccountGroup(items);
     expect((merged.notes.match(/same note/g) || []).length).toBe(1);
-  });
-});
-
-describe("shareUrisWithinSite", () => {
-  it("shares the union of URIs among entries on the same canonical site", () => {
-    const items = [
-      { type: 1, name: "x", login: { username: "u@x.com", uris: [{ match: null, uri: "https://x.com/a" }] } },
-      { type: 1, name: "x", login: { username: "u@x.com", uris: [{ match: null, uri: "https://x.com/b" }] } }
-    ];
-    shareUrisWithinSite(items);
-    const uris0 = items[0].login.uris.map(u => u.uri).sort();
-    const uris1 = items[1].login.uris.map(u => u.uri).sort();
-    expect(uris0).toEqual(["https://x.com/a", "https://x.com/b"]);
-    expect(uris1).toEqual(["https://x.com/a", "https://x.com/b"]);
-  });
-
-  it("does not cross sites", () => {
-    const items = [
-      { type: 1, name: "x", login: { username: "u@x.com", uris: [{ match: null, uri: "https://x.com" }] } },
-      { type: 1, name: "y", login: { username: "u@y.com", uris: [{ match: null, uri: "https://y.com" }] } }
-    ];
-    shareUrisWithinSite(items);
-    expect(items[0].login.uris.map(u => u.uri)).toEqual(["https://x.com"]);
-    expect(items[1].login.uris.map(u => u.uri)).toEqual(["https://y.com"]);
   });
 });
 
@@ -186,17 +162,52 @@ describe("buildExport", () => {
   });
 
   it("passes the real Bitwarden sample through unchanged when nothing is selected", () => {
-    const items = JSON.parse(JSON.stringify(bitwardenSample.items));
+    const vault = structuredClone(bitwardenSample);
     const result = buildExport({
-      vaultData: bitwardenSample,
-      items,
-      duplicateGroups: [],
+      vaultData: vault,
+      items: vault.items,
+      duplicateGroups: computeDuplicateGroups(vault.items),
       itemsToMerge: new Set(),
       itemsToDelete: new Set(),
     });
-    expect(result.items).toHaveLength(bitwardenSample.items.length);
-    const ids = result.items.map(it => it.id).sort();
-    const expectedIds = bitwardenSample.items.map(it => it.id).sort();
-    expect(ids).toEqual(expectedIds);
+    expect(result).toEqual(bitwardenSample);
+  });
+
+  it("does not copy URIs between different accounts on the same site", () => {
+    const items = [
+      { id: "alice", type: 1, name: "GitHub", creationDate: "2020-01-01", revisionDate: "2020-01-01",
+        login: { username: "alice", uris: [{ match: null, uri: "https://github.com/login" }] } },
+      { id: "bob", type: 1, name: "GitHub", creationDate: "2020-01-01", revisionDate: "2020-01-01",
+        login: { username: "bob", uris: [{ match: null, uri: "https://github.com/enterprise" }] } }
+    ];
+    const result = buildExport({
+      vaultData: { encrypted: false, folders: [], items },
+      items, duplicateGroups: computeDuplicateGroups(items),
+      itemsToMerge: new Set(), itemsToDelete: new Set()
+    });
+    expect(result.items[0].login.uris.map(u => u.uri)).toEqual(["https://github.com/login"]);
+    expect(result.items[1].login.uris.map(u => u.uri)).toEqual(["https://github.com/enterprise"]);
+  });
+
+  it("leaves the loaded items untouched, so a second export gives the same result", () => {
+    const vault = {
+      encrypted: false, folders: [{ id: "f1", name: "F" }],
+      items: [
+        { id: "a", type: 1, name: "X", folderId: "f1", creationDate: "2020-01-01", revisionDate: "2020-01-01",
+          login: { username: "u@x.com", password: "p1", uris: [{ match: null, uri: "https://x.com/a" }] } },
+        { id: "b", type: 1, name: "X", folderId: null, creationDate: "2021-01-01", revisionDate: "2021-01-01",
+          login: { username: "u@x.com", password: "p2", uris: [{ match: 3, uri: "https://x.com/b" }] } },
+        { id: "c", type: 1, name: "X", folderId: "f1", creationDate: "2022-01-01", revisionDate: "2022-01-01",
+          login: { username: "u@x.com", password: "p1", uris: [{ match: null, uri: "https://x.com/c" }] } }
+      ]
+    };
+    const snapshot = structuredClone(vault);
+    const args = {
+      vaultData: vault, items: vault.items, duplicateGroups: computeDuplicateGroups(vault.items),
+      itemsToMerge: new Set([0, 1]), itemsToDelete: new Set()
+    };
+    const first = buildExport(args);
+    expect(vault).toEqual(snapshot);
+    expect(buildExport(args)).toEqual(first);
   });
 });

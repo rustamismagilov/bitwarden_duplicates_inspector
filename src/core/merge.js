@@ -1,5 +1,3 @@
-import { canonicalWebsiteKey } from "./dedup.js";
-
 export function mergeSameAccountGroup(groupItems) {
   if (!groupItems.length) throw new Error("mergeSameAccountGroup called with empty list");
 
@@ -72,47 +70,6 @@ export function mergeSameAccountGroup(groupItems) {
   return base;
 }
 
-export function shareUrisWithinSite(itemsArr) {
-  const sites = new Map();
-  itemsArr.forEach(it => {
-    const siteKey = canonicalWebsiteKey(it);
-    if (!siteKey) return;
-    if (!sites.has(siteKey)) sites.set(siteKey, []);
-    sites.get(siteKey).push(it);
-  });
-
-  for (const [, siteItems] of sites.entries()) {
-    const unionMap = new Map();
-
-    for (const it of siteItems) {
-      const login = it.login || {};
-      const uris = Array.isArray(login.uris) ? login.uris : [];
-      for (const u of uris) {
-        const key = String(u.match ?? "") + "::" + String(u.uri ?? "");
-        if (!unionMap.has(key)) {
-          unionMap.set(key, {
-            match: u.match ?? null,
-            uri: u.uri ?? ""
-          });
-        }
-      }
-    }
-
-    for (const it of siteItems) {
-      const login = it.login || (it.login = {});
-      if (!Array.isArray(login.uris)) login.uris = [];
-      const existing = new Set(
-        login.uris.map(u => String(u.match ?? "") + "::" + String(u.uri ?? ""))
-      );
-      for (const [key, val] of unionMap.entries()) {
-        if (!existing.has(key)) {
-          login.uris.push({ match: val.match, uri: val.uri });
-        }
-      }
-    }
-  }
-}
-
 export function buildExport({ vaultData, items, duplicateGroups, itemsToMerge, itemsToDelete }) {
   if (!vaultData || !Array.isArray(items)) {
     throw new Error("buildExport: vaultData and items[] are required");
@@ -149,8 +106,6 @@ export function buildExport({ vaultData, items, duplicateGroups, itemsToMerge, i
     if (removed[i]) continue;
     resultItems.push(items[i]);
   }
-
-  shareUrisWithinSite(resultItems);
 
   return Object.assign({}, vaultData, {
     items: resultItems
