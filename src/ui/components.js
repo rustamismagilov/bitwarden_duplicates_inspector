@@ -21,7 +21,7 @@ export { escapeHtml, formatDate };
 // mergeBase: the entry a queued merge keeps
 export function renderItemRow(state, it, idx, { preview = false, sole = false, mergeBase = false } = {}) {
   const login = it.login || {};
-  const uris = Array.isArray(login.uris) ? login.uris : [];
+  const uris = (Array.isArray(login.uris) ? login.uris : []).filter(Boolean);
   const name = it.name || "";
   const created = it.creationDate || "";
   const revised = it.revisionDate || "";

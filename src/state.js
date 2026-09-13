@@ -81,6 +81,16 @@ export function setShowPreviews(show) {
   state.showPreviews = Boolean(show);
 }
 
+export function hasQueuedChanges(s) {
+  return s.itemsToMerge.size > 0 || s.itemsToDelete.size > 0;
+}
+
+// a snapshot of the queued marks, to tell whether they changed since the last download
+export function marksSnapshot(s) {
+  const sortedList = set => [...set].sort((a, b) => a - b);
+  return JSON.stringify([sortedList(s.itemsToMerge), sortedList(s.itemsToDelete)]);
+}
+
 function allIn(set, indices) {
   return indices.length > 0 && indices.every(i => set.has(i));
 }

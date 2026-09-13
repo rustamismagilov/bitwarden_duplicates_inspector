@@ -14,6 +14,8 @@ import {
   toggleMergeAll,
   deleteSelectedAction,
   toggleDeleteSelected,
+  hasQueuedChanges,
+  marksSnapshot,
   setFilterText,
   isGroupVisible,
 } from "../src/state.js";
@@ -73,6 +75,28 @@ describe("loading", () => {
     unsubscribe();
     toggleSelected(1);
     expect(fn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("queued changes", () => {
+  it("counts merges and deletions but not selection", () => {
+    expect(hasQueuedChanges(getState())).toBe(false);
+    toggleSelected(0);
+    expect(hasQueuedChanges(getState())).toBe(false);
+    applyGroupAction(1, "delete");
+    expect(hasQueuedChanges(getState())).toBe(true);
+  });
+
+  it("gives a snapshot that ignores selection and returns to the same value when marks are restored", () => {
+    applyGroupAction(0, "merge");
+    applyGroupAction(1, "delete");
+    const first = marksSnapshot(getState());
+    toggleSelected(0);
+    expect(marksSnapshot(getState())).toBe(first);
+    applyGroupAction(1, "delete");
+    expect(marksSnapshot(getState())).not.toBe(first);
+    applyGroupAction(1, "delete");
+    expect(marksSnapshot(getState())).toBe(first);
   });
 });
 
