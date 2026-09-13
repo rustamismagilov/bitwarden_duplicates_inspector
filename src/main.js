@@ -6,6 +6,7 @@ import {
   notify,
 } from "./state.js";
 import { buildExport } from "./core/merge.js";
+import { parseVaultExport } from "./core/vault.js";
 import { renderUI, applyFilter, togglePreviewSections } from "./ui/render.js";
 import { attachDelegatedListener } from "./ui/events.js";
 
@@ -149,16 +150,10 @@ function handleFileChange(e) {
   const reader = new FileReader();
   reader.onload = evt => {
     try {
-      const text = evt.target.result;
-      const data = JSON.parse(text);
-      if (!data || !Array.isArray(data.items)) {
-        throw new Error("JSON does not look like a Bitwarden export.");
-      }
-      setVault(data);
+      setVault(parseVaultExport(evt.target.result));
       setStatus("");
       searchWrapper.style.display = "block";
     } catch (err) {
-      console.error(err);
       setStatus("Error: " + err.message, true);
       clearVault();
       fileLabelText.textContent = "Choose file";
