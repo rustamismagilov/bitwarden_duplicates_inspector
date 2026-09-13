@@ -18,9 +18,9 @@ Since [Bitwarden has no built-in deduplication](https://community.bitwarden.com/
 7. When everything checks out, delete both plaintext files: your original export and `bitwarden_merged.json`.
 
 > [!WARNING]
-> Bitwarden's import is additive. If you import without removing the old entries first, you end up with the old entries AND the merged ones. You can either [purge the vault](https://bitwarden.com/help/product-faqs/#q-what-happens-when-i-purge-my-vault) first or delete the original entries by hand.
+> The downloaded file contains your **whole vault**, not only the entries you merged, and Bitwarden's import only adds. If you import it on top of the existing vault, every entry ends up there twice. Before importing, either [purge the vault](https://bitwarden.com/help/product-faqs/#q-what-happens-when-i-purge-my-vault) or delete all of its entries.
 >
-> Either way, the entries you remove take their **file attachments** with them, and a .json export does not contain attachments, so the import cannot bring them back. Purging also empties the trash for good. If some entries have attachments, save those files first and upload them again after the import.
+> Either way, the removed entries take their **file attachments** with them, and a .json export does not contain attachments, so the import cannot bring them back. Purging also empties the trash for good. If some entries have attachments, save those files first and upload them again after the import.
 >
 > Keep your original export until you have checked the imported vault.
 
@@ -52,36 +52,48 @@ When two or more entries of a group are marked for merge, they become one entry:
 - The entry with the oldest **creation date** is kept (`creationDate`, falling back to `revisionDate`). The table tags it **kept in merge**.
 - Its password stays active. If it has no password, the password of the oldest entry that has one is used.
 - Every other password is written to the kept entry's notes under `Additional passwords seen in merged entries:`, one per line.
-- TOTP secrets, passkeys and custom fields from the other entries are added to the kept entry. A login holds a single TOTP secret, so when entries have different secrets the others go to notes under `Additional TOTP secrets seen in merged entries:`.
+- TOTP secrets and custom fields from the other entries are added to the kept entry. A login holds a single TOTP secret, so when entries have different secrets the others go to notes under `Additional TOTP secrets seen in merged entries:`.
+- Bitwarden only uses one passkey per login. The kept entry keeps its passkeys, or takes those of the oldest entry that has any. Any other passkey is dropped and listed in notes by site, user name and date, without its key, so you know to register it again.
 - Password history from all entries is combined, newest first. Bitwarden keeps only the 5 newest entries on import, so anything older goes to notes.
 - All URLs are collected onto the kept entry with their match settings.
 - Notes from every entry are kept, without repeating identical ones.
 - The entry is a favorite if any of the merged entries was, and asks for the master password again if any of them did.
+- It stays in the kept entry's folder. If the kept entry has no folder, it goes into the folder of the oldest entry that has one.
+- It is only archived if every merged entry was archived.
+- In an organization export, it belongs to every collection that any of the merged entries was in.
 
-Nothing else in the export changes. Entries you did not touch are written exactly as they were, in their original order, and folders stay as they are.
+Nothing else in the export changes. Entries you did not touch are written exactly as they were, in their original order, and the folder list stays as it is.
 
 Before the download, the tool checks whether a merged entry has grown past what Bitwarden accepts, for example notes over its length limit. Bitwarden rejects the whole import in that case, so you get a warning listing those entries first.
 
+### Group tags
+
+Some groups carry a tag that asks you to look before merging. **Merge all untagged groups** leaves these groups out, so you merge them one by one:
+
+- **matched by email domain** or **matched by entry name**: see [Detection](#detection).
+- **different passkeys**: the entries hold different passkeys, and a merge keeps only one entry's.
+- **different collections**: the entries sit in different collections of an organization, and everyone in any of those collections will see everything merged in.
+
 ### Group controls
 
-Each group has three buttons. They are selection-aware:
+Each group has three buttons.
 
-- With no checkboxes ticked, the buttons act on the entire group.
-- With one or more checkboxes ticked, the buttons act only on those entries.
+**Select all in group** ticks every entry of the group. When every entry is already ticked, it unticks them all.
 
-| Button | Nothing ticked | Entries ticked |
+The merge and delete buttons act on the whole group when nothing is ticked, and only on the ticked entries otherwise. Their label tells you which:
+
+| Nothing ticked | Entries ticked | What it does |
 |---|---|---|
-| Select all in group | tick every entry | untick every entry, if all are ticked |
-| Mark to merge entire group | mark every entry for merge | mark the ticked entries (needs 2 or more) |
-| Mark group for deletion | mark every entry for deletion | mark the ticked entries for deletion |
+| Mark to merge entire group | Merge selected entries | marks the entries for merge. A merge needs at least two entries, counting the ones already marked in that group |
+| Mark group for deletion | Mark selected for deletion | marks the entries for deletion |
 
-Once something is marked, the button label changes to the matching **Unmark** action. Marking an entry for merge clears its deletion mark, and the other way round.
+Once entries are marked, the labels change to **Unmark group merge**, **Unmark selected from merge**, **Unmark group for deletion** or **Unmark selected for deletion**. Marking an entry for merge clears its deletion mark, and the other way round.
 
 ### Top controls
 
 - **Filter** narrows the list by site, username, entry name or URL.
 - **Select all entries in all groups** ticks every entry in the groups you can see.
-- **Merge all groups matched by URL** marks every visible group for merge, except the ones matched by email domain or entry name.
+- **Merge all untagged groups** marks every visible group for merge, except the ones with a [tag](#group-tags).
 - **Mark selected for deletion** marks the ticked entries in the visible groups.
 - **Enable result previews** shows what each group turns into once the queued merges and deletions are applied. The preview uses the same code as the download.
 - The sun and moon button switches between light and dark. Until you use it, the page follows your system theme.
