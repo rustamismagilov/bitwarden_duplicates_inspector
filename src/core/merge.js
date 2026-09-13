@@ -152,12 +152,7 @@ export function buildExport({ vaultData, items, duplicateGroups, itemsToMerge, i
 
   shareUrisWithinSite(resultItems);
 
-  resultItems.forEach(it => {
-    if ("folderId" in it) it.folderId = null;
-  });
-
   return Object.assign({}, vaultData, {
-    items: resultItems,
-    folders: []
+    items: resultItems
   });
 }

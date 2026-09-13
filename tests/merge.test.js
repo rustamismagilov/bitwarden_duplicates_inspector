@@ -111,7 +111,7 @@ describe("buildExport", () => {
     expect(result.items[0].id).toBe("k");
   });
 
-  it("clears folderId on all output items", () => {
+  it("keeps folders and each item's folderId", () => {
     const vault = {
       encrypted: false, folders: [{ id: "f1", name: "F" }],
       items: [
@@ -123,8 +123,25 @@ describe("buildExport", () => {
       vaultData: vault, items: vault.items, duplicateGroups: [],
       itemsToMerge: new Set(), itemsToDelete: new Set()
     });
-    expect(result.items[0].folderId).toBeNull();
-    expect(result.folders).toEqual([]);
+    expect(result.items[0].folderId).toBe("f1");
+    expect(result.folders).toEqual([{ id: "f1", name: "F" }]);
+  });
+
+  it("does not add a folders key to an organization export", () => {
+    const vault = {
+      encrypted: false, collections: [{ id: "c1", name: "Team" }],
+      items: [
+        { id: "k", type: 1, name: "X", organizationId: "o1", collectionIds: ["c1"],
+          creationDate: "2020-01-01", revisionDate: "2020-01-01",
+          login: { username: "u@x.com", uris: [{ match: null, uri: "https://x.com" }] } }
+      ]
+    };
+    const result = buildExport({
+      vaultData: vault, items: vault.items, duplicateGroups: [],
+      itemsToMerge: new Set(), itemsToDelete: new Set()
+    });
+    expect(Object.keys(result).sort()).toEqual(["collections", "encrypted", "items"]);
+    expect(result.items[0].collectionIds).toEqual(["c1"]);
   });
 
   it("excludes items in itemsToDelete from output", () => {
