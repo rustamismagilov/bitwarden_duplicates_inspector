@@ -1,13 +1,13 @@
 import { renderItemRow, escapeHtml } from "./components.js";
-import { resolveGroup } from "../core/merge.js";
+import { resolveGroup, keptEntryIndex } from "../core/merge.js";
 import { groupAction, isGroupVisible, selectAllAction, mergeAllAction, deleteSelectedAction } from "../state.js";
 
 function buildPreviewSectionHtml(state, groupIndex) {
   const g = state.duplicateGroups[groupIndex];
   const previewItems = resolveGroup(state.items, g, state.itemsToMerge, state.itemsToDelete);
-  const rowsHtml = previewItems
-    .map((pit, pidx) => renderItemRow(state, pit, pidx, true))
-    .join("");
+  const rowsHtml = previewItems.length
+    ? previewItems.map((pit, pidx) => renderItemRow(state, pit, pidx, { preview: true })).join("")
+    : `<tr><td colspan="5" class="preview-empty">Every entry in this group will be deleted. Nothing from it ends up in the export.</td></tr>`;
   return `<div class="preview-container">
     <div class="preview-arrow">▼ Result Preview</div>
     <table>
@@ -21,6 +21,16 @@ function buildPreviewSectionHtml(state, groupIndex) {
     <tbody>${rowsHtml}</tbody>
     </table>
   </div>`;
+}
+
+function plural(n, one, many = one + "s") {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+// previews only show for groups with something queued
+// otherwise they would just repeat the main table
+function shouldShowPreview(state, g) {
+  return state.showPreviews && g.indices.some(i => state.itemsToMerge.has(i) || state.itemsToDelete.has(i));
 }
 
 function renderSummary(state, refs) {
@@ -47,13 +57,13 @@ function renderSummary(state, refs) {
     return;
   }
 
-  const leftHtml = `Loaded <strong>${totalItems}</strong> entries.<br>` +
-    `Found <strong>${groupsCount}</strong> duplicate group${groupsCount === 1 ? "" : "s"} ` +
-    `involving <strong>${dupItemsCount}</strong> entries.<br>` +
-    `<strong>${uniqueCount}</strong> entries have no duplicates.`;
+  const leftHtml = `Loaded <strong>${plural(totalItems, "entry", "entries")}</strong>.<br>` +
+    `Found <strong>${plural(groupsCount, "duplicate group")}</strong> ` +
+    `involving <strong>${plural(dupItemsCount, "entry", "entries")}</strong>.<br>` +
+    `<strong>${uniqueCount}</strong> ${uniqueCount === 1 ? "entry has" : "entries have"} no duplicates.`;
 
   const rightHtml = `<div style="text-align: right;">` +
-    `Final Export: <strong>${finalExportCount}</strong> entries<br>` +
+    `Final Export: <strong>${finalExportCount}</strong> ${finalExportCount === 1 ? "entry" : "entries"}<br>` +
     `<small class="text-muted">(${state.itemsToDelete.size} deleted, ${mergeReduction} merged)</small>` +
     `</div>`;
 
@@ -76,8 +86,11 @@ function renderGroupsMarkup(state) {
     const selectedInGroup = g.indices.filter(i => state.selectedItems.has(i));
     const selectedCount = selectedInGroup.length;
     const allSelected = selectedCount === count && count > 0;
-    const mergedInGroup = g.indices.filter(i => state.itemsToMerge.has(i)).length;
+    const mergingIndices = g.indices.filter(i => state.itemsToMerge.has(i) && !state.itemsToDelete.has(i));
+    const mergedInGroup = mergingIndices.length;
     const deletedInGroup = g.indices.filter(i => state.itemsToDelete.has(i)).length;
+    // the entry a merge keeps, so the table can point it out
+    const mergeBase = mergedInGroup > 1 ? mergingIndices[keptEntryIndex(mergingIndices.map(i => state.items[i]))] : -1;
 
     htmlParts.push(`<div class="group" data-group-index="${groupIndex}">`);
     htmlParts.push(`<div class="group-header">`);
@@ -102,11 +115,15 @@ function renderGroupsMarkup(state) {
       htmlParts.push(`<span class="tag tag-selected">${escapeHtml(selectedText)}</span>`);
     }
 
-    if (mergedInGroup > 0) {
-      htmlParts.push(`<span class="tag tag-merge">${mergedInGroup} will be merged</span>`);
+    if (mergedInGroup > 1) {
+      htmlParts.push(`<span class="tag tag-merge">${mergedInGroup} will be merged into one</span>`);
+    } else if (mergedInGroup === 1) {
+      htmlParts.push(`<span class="tag tag-merge">1 marked for merge, mark another to merge</span>`);
     }
 
-    if (deletedInGroup > 0) {
+    if (deletedInGroup === count) {
+      htmlParts.push(`<span class="tag tag-deleted">all ${count} will be deleted, none kept</span>`);
+    } else if (deletedInGroup > 0) {
       htmlParts.push(`<span class="tag tag-deleted">${deletedInGroup} will be deleted</span>`);
     }
 
@@ -155,19 +172,14 @@ function renderGroupsMarkup(state) {
 
     g.indices.forEach(idx => {
       const it = state.items[idx];
-      const isDeleted = state.itemsToDelete.has(idx);
-      let isKept = false;
-      if (!isDeleted && (count - deletedInGroup === 1)) {
-        isKept = true;
-      }
-      htmlParts.push(renderItemRow(state, it, idx, false, isKept));
+      // the only entry left after deletions
+      const sole = !state.itemsToDelete.has(idx) && count - deletedInGroup === 1;
+      htmlParts.push(renderItemRow(state, it, idx, { sole, mergeBase: idx === mergeBase }));
     });
 
     htmlParts.push(`</tbody></table>`);
 
-    // skip preview when nothing is queued
-    // otherwise it just duplicates the main table
-    if (state.showPreviews && deletedInGroup < count && (mergedInGroup > 0 || deletedInGroup > 0)) {
+    if (shouldShowPreview(state, g)) {
       htmlParts.push(buildPreviewSectionHtml(state, groupIndex));
     }
 
@@ -185,14 +197,7 @@ export function togglePreviewSections(state, refs) {
 
   state.duplicateGroups.forEach((g, groupIndex) => {
     const groupEl = refs.groupsEl.querySelector(`.group[data-group-index="${groupIndex}"]`);
-    if (!groupEl) return;
-    const count = g.indices.length;
-    const deletedInGroup = g.indices.filter(i => state.itemsToDelete.has(i)).length;
-    const mergedInGroup = g.indices.filter(i => state.itemsToMerge.has(i)).length;
-    if (deletedInGroup >= count) return;
-    // skip groups with no actions queued
-    // preview would just duplicate the main table
-    if (mergedInGroup === 0 && deletedInGroup === 0) return;
+    if (!groupEl || !shouldShowPreview(state, g)) return;
     groupEl.insertAdjacentHTML("beforeend", buildPreviewSectionHtml(state, groupIndex));
   });
 }
@@ -203,6 +208,14 @@ function renderControls(state, refs) {
   renderGlobalButton(refs.mergeAllGroupsBtn, mergeAllAction(state));
   renderGlobalButton(refs.deleteSelectedBtn, deleteSelectedAction(state));
   refs.clearSearchBtn.style.display = state.filterText ? "block" : "none";
+
+  let hint = "";
+  if (state.vaultData && !state.duplicateGroups.length) {
+    hint = "No duplicates found. Only login entries with a username are compared.";
+  } else if (state.filterText && !state.duplicateGroups.some((g, gi) => isGroupVisible(state, gi))) {
+    hint = "No groups match the filter.";
+  }
+  refs.hintEl.textContent = hint;
 }
 
 // hides groups that do not match the filter without rebuilding the list
@@ -217,7 +230,6 @@ export function renderUI(state, refs) {
   renderSummary(state, refs);
 
   refs.downloadBtn.disabled = !state.items.length;
-  refs.hintEl.textContent = "";
   refs.groupsEl.innerHTML = state.duplicateGroups.length ? renderGroupsMarkup(state) : "";
   applyFilter(state, refs);
 }

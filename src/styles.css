@@ -24,6 +24,7 @@
       --row-deleted-bg: rgba(220, 38, 38, 0.15);
       --row-kept-bg: rgba(16, 185, 129, 0.35);
       --warning: #b45309;
+      --kept: #047857;
     }
 
     body.theme-dark {
@@ -52,6 +53,7 @@
       --row-deleted-bg: rgba(239, 68, 68, 0.2);
       --row-kept-bg: rgba(16, 185, 129, 0.2);
       --warning: #fbbf24;
+      --kept: #34d399;
     }
 
     body {
@@ -343,6 +345,17 @@
       border-color: var(--danger);
       color: var(--danger);
       background: rgba(220, 38, 38, 0.08);
+    }
+
+    .tag-kept {
+      border-color: var(--kept);
+      color: var(--kept);
+    }
+
+    .preview-empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 8px;
     }
 
     .tag-weak {

@@ -16,7 +16,10 @@ function formatDate(str) {
 
 export { escapeHtml, formatDate };
 
-export function renderItemRow(state, it, idx, isPreview = false, isKept = false) {
+// preview: a row of the result preview, which has no checkbox
+// sole: the only entry of its group left after deletions
+// mergeBase: the entry a queued merge keeps
+export function renderItemRow(state, it, idx, { preview = false, sole = false, mergeBase = false } = {}) {
   const login = it.login || {};
   const uris = Array.isArray(login.uris) ? login.uris : [];
   const name = it.name || "";
@@ -45,18 +48,21 @@ export function renderItemRow(state, it, idx, isPreview = false, isKept = false)
 
   const favTag = it.favorite ? `<span class="tag tag-fav">★ favorite</span>` : "";
   const typeTag = it.type !== 1 ? `<span class="tag tag-no-login">type=${escapeHtml(String(it.type))}</span>` : "";
+  const keptTag = mergeBase
+    ? `<span class="tag tag-kept" title="The merge keeps this entry, the oldest one, and adds what the others have. Passwords that differ are written to its notes.">kept in merge</span>`
+    : "";
 
   let rowClass = "";
   let checkHtml = "";
 
-  if (!isPreview) {
+  if (!preview) {
     const isDeleted = state.itemsToDelete.has(idx);
     const isMerged = state.itemsToMerge.has(idx);
     const isSelected = state.selectedItems.has(idx);
 
     if (isDeleted) rowClass = "row-deleted";
     else if (isMerged) rowClass = "row-merged";
-    else if (isKept) rowClass = "row-kept";
+    else if (sole) rowClass = "row-kept";
 
     const checkedAttr = isSelected ? "checked" : "";
     checkHtml = `<td class="col-select" style="text-align:center;">
@@ -70,7 +76,7 @@ export function renderItemRow(state, it, idx, isPreview = false, isKept = false)
     ${checkHtml}
     <td class="col-name">
       ${escapeHtml(name || "(no name)")}
-      ${favTag}${typeTag}
+      ${favTag}${typeTag}${keptTag}
       <span class="badge badge-id">id: ${escapeHtml(it.id || "new")}</span>
     </td>
     <td class="col-dates">
