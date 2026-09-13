@@ -193,14 +193,19 @@ export function toggleSelectAll() {
   notify();
 }
 
+// groups matched only by an email domain or an entry name are guesses
+// merge all leaves them alone, the user has to merge those one by one
 export function mergeAllAction(s) {
-  const targets = visibleIndices(s);
+  const targets = s.duplicateGroups.flatMap((g, gi) =>
+    isGroupVisible(s, gi) && g.matchedBy === "uri" ? g.indices : []
+  );
   const all = allIn(s.itemsToMerge, targets);
+  const scope = s.filterText ? "visible" : "all";
   return {
     targets,
     mark: !all,
     disabled: targets.length === 0,
-    label: all ? `Unmark merges in ${scopeText(s)}` : `Merge all entries in ${scopeText(s)}`,
+    label: `${all ? "Unmark" : "Merge"} ${scope} groups matched by URL`,
   };
 }
 

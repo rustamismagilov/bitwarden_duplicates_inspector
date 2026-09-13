@@ -206,7 +206,7 @@ describe("global buttons", () => {
     toggleMergeAll();
     expect(sorted(getState().itemsToMerge)).toEqual([0, 1, 2, 3, 4]);
     expect(getState().itemsToDelete.size).toBe(0);
-    expect(mergeAllAction(getState()).label).toBe("Unmark merges in all groups");
+    expect(mergeAllAction(getState()).label).toBe("Unmark all groups matched by URL");
     toggleMergeAll();
     expect(getState().itemsToMerge.size).toBe(0);
   });
@@ -230,7 +230,7 @@ describe("global buttons", () => {
     expect(sorted(getState().selectedItems)).toEqual([3, 4]);
     toggleMergeAll();
     expect(sorted(getState().itemsToMerge)).toEqual([3, 4]);
-    expect(mergeAllAction(getState()).label).toBe("Unmark merges in visible groups");
+    expect(mergeAllAction(getState()).label).toBe("Unmark visible groups matched by URL");
   });
 
   it("does not delete selected entries that the filter hides", () => {
@@ -240,6 +240,31 @@ describe("global buttons", () => {
     expect(deleteSelectedAction(getState()).targets).toEqual([3]);
     toggleDeleteSelected();
     expect(sorted(getState().itemsToDelete)).toEqual([3]);
+  });
+
+  it("leaves groups matched only by email domain or name out of merge all", () => {
+    setVault({
+      encrypted: false, folders: [],
+      items: [
+        login("a1", "u", "https://a.com"),
+        login("a2", "u", "https://a.com"),
+        { id: "forum", type: 1, name: "Forum", login: { username: "me@gmail.com", uris: [] } },
+        { id: "shop", type: 1, name: "Shop", login: { username: "me@gmail.com", uris: [] } },
+        { id: "acme1", type: 1, name: "Login at acme.io", login: { username: "bob", uris: [] } },
+        { id: "acme2", type: 1, name: "Acme.io support", login: { username: "bob", uris: [] } }
+      ]
+    });
+    const s = getState();
+    expect(s.duplicateGroups.map(g => [g.site, g.matchedBy])).toEqual([
+      ["a.com", "uri"],
+      ["acme.io", "name"],
+      ["gmail.com", "email"]
+    ]);
+    expect(mergeAllAction(s).label).toBe("Merge all groups matched by URL");
+    toggleMergeAll();
+    expect(sorted(s.itemsToMerge)).toEqual([0, 1]);
+    applyGroupAction(2, "merge");
+    expect(sorted(s.itemsToMerge)).toEqual([0, 1, 2, 3]);
   });
 
   it("disables the buttons when there is nothing to act on", () => {

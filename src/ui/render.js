@@ -92,6 +92,11 @@ function renderGroupsMarkup(state) {
     htmlParts.push(`<div class="meta-line">
       <span class="count">${count} item${count === 1 ? "" : "s"}</span>`);
 
+    if (g.matchedBy !== "uri") {
+      const how = g.matchedBy === "email" ? "email domain" : "entry name";
+      htmlParts.push(`<span class="tag tag-weak" title="Some entries have no URL for this site, so they were grouped by their ${how}. Check that they are the same account before merging.">matched by ${how}</span>`);
+    }
+
     if (selectedCount > 0) {
       const selectedText = allSelected ? "all selected" : `${selectedCount} selected`;
       htmlParts.push(`<span class="tag tag-selected">${escapeHtml(selectedText)}</span>`);
