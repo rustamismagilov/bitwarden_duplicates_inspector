@@ -3,6 +3,7 @@ import {
   isIPv4,
   parseHostPort,
   canonicalWebsiteKey,
+  siteKeyInfo,
   computeDuplicateGroups,
 } from "../src/core/dedup.js";
 
@@ -48,11 +49,21 @@ describe("parseHostPort", () => {
     expect(parseHostPort(null)).toBeNull();
     expect(parseHostPort(undefined)).toBeNull();
   });
-  it("returns null for host without dot (and not IPv4)", () => {
+  it("returns null for a host without a dot", () => {
     expect(parseHostPort("https://localhost")).toBeNull();
+    expect(parseHostPort("https://localhost:3000")).toBeNull();
   });
-  it("accepts IPv4 hosts without dots-rule rejection", () => {
+  it("parses IPv4 hosts", () => {
     expect(parseHostPort("https://192.168.1.1")).toEqual({ host: "192.168.1.1", port: null });
+  });
+  it("stops the host at a query string or fragment", () => {
+    expect(parseHostPort("https://example.com?ref=1")).toEqual({ host: "example.com", port: null });
+    expect(parseHostPort("example.com#login")).toEqual({ host: "example.com", port: null });
+    expect(parseHostPort("https://10.0.0.1:8080?x=1")).toEqual({ host: "10.0.0.1", port: "8080" });
+  });
+  it("parses IPv6 hosts with and without a port", () => {
+    expect(parseHostPort("https://[fe80::1]:5001/login")).toEqual({ host: "[fe80::1]", port: "5001" });
+    expect(parseHostPort("https://[2001:DB8::2]")).toEqual({ host: "[2001:db8::2]", port: null });
   });
 });
 
@@ -62,12 +73,45 @@ describe("canonicalWebsiteKey", () => {
     expect(canonicalWebsiteKey({ type: 3, name: "card" })).toBeNull();
   });
 
+  it("prefers a web address over an app link", () => {
+    const item = { type: 1, name: "x", login: { uris: [
+      { uri: "androidapp://com.github.android" },
+      { uri: "https://github.com/login" }
+    ] } };
+    expect(siteKeyInfo(item)).toEqual({ key: "github.com", source: "uri" });
+  });
+
+  it("uses an app link when the entry has no web address", () => {
+    const item = { type: 1, name: "x", login: { uris: [{ uri: "androidapp://com.github.android" }] } };
+    expect(canonicalWebsiteKey(item)).toBe("com.github.android");
+  });
+
+  it("keeps the port for IPv6 hosts like it does for IPv4", () => {
+    const item = { type: 1, name: "x", login: { uris: [{ uri: "https://[fe80::1]:5001" }] } };
+    expect(canonicalWebsiteKey(item)).toBe("[fe80::1]:5001");
+  });
+
+  it("ignores the port for domain names", () => {
+    const item = { type: 1, name: "x", login: { uris: [{ uri: "https://example.com:8443" }] } };
+    expect(canonicalWebsiteKey(item)).toBe("example.com");
+  });
+
+  it("reports where the key came from", () => {
+    expect(siteKeyInfo({ type: 1, name: "x", login: { username: "me@example.com", uris: [] } }))
+      .toEqual({ key: "example.com", source: "email" });
+    expect(siteKeyInfo({ type: 1, name: "Login at acme.io", login: { username: "bob", uris: [] } }))
+      .toEqual({ key: "acme.io", source: "name" });
+    // the email domain comes before a domain in the name
+    expect(siteKeyInfo({ type: 1, name: "Netflix.com", login: { username: "me@gmail.com", uris: [] } }))
+      .toEqual({ key: "gmail.com", source: "email" });
+  });
+
   it("extracts host from first valid URI", () => {
     const item = { type: 1, name: "x", login: { uris: [{ uri: "https://google.com" }] } };
     expect(canonicalWebsiteKey(item)).toBe("google.com");
   });
 
-  it("strips www subdomain treats it as part of host (NOT stripped - current behavior)", () => {
+  it("keeps the www. prefix as part of the host", () => {
     const item = { type: 1, name: "x", login: { uris: [{ uri: "https://www.google.com" }] } };
     expect(canonicalWebsiteKey(item)).toBe("www.google.com");
   });
@@ -108,16 +152,29 @@ describe("computeDuplicateGroups", () => {
     expect(groups[0].indices).toEqual([0, 1]);
   });
 
-  it("treats all 4 uri-variations of foo.com as one group (www. is NOT stripped)", () => {
+  it("groups the three foo.com spellings and leaves www.foo.com out", () => {
     const groups = computeDuplicateGroups(uriVariations.items);
     const fooGroup = groups.find(g => g.site === "foo.com");
     expect(fooGroup).toBeDefined();
-    expect(fooGroup.indices.sort()).toEqual([0, 1, 3]);
+    expect(fooGroup.indices).toEqual([0, 1, 3]);
+    expect(fooGroup.matchedBy).toBe("uri");
   });
 
-  it("falls back to email-domain matching across entries without URIs", () => {
+  it("falls back to the email domain and then the entry name for entries without URIs", () => {
     const groups = computeDuplicateGroups(noUriFallback.items);
-    expect(groups).toHaveLength(2);
+    expect(groups.map(g => [g.site, g.matchedBy])).toEqual([
+      ["acme.io", "name"],
+      ["mail.example", "email"]
+    ]);
+  });
+
+  it("marks a group as matched by email when any entry only had its email domain", () => {
+    const groups = computeDuplicateGroups([
+      { id: "a", type: 1, name: "Forum", login: { username: "me@gmail.com", uris: [] } },
+      { id: "b", type: 1, name: "Gmail", login: { username: "me@gmail.com", uris: [{ uri: "https://gmail.com" }] } }
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].matchedBy).toBe("email");
   });
 
   it("excludes groups of size 1", () => {
