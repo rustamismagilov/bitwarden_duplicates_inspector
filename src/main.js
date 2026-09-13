@@ -3,7 +3,10 @@ import {
   subscribe,
   setVault,
   clearVault,
-  notify,
+  setShowPreviews,
+  toggleSelectAll,
+  toggleMergeAll,
+  toggleDeleteSelected,
 } from "./state.js";
 import { buildExport } from "./core/merge.js";
 import { parseVaultExport } from "./core/vault.js";
@@ -99,42 +102,6 @@ function handleDownload() {
   }
 }
 
-function handleDeleteSelected() {
-  const s = getState();
-  if (!s.selectedItems.size) {
-    alert("No entries selected.");
-    return;
-  }
-  const selected = Array.from(s.selectedItems);
-  const allDeleted = selected.every(i => s.itemsToDelete.has(i));
-  if (allDeleted) selected.forEach(i => s.itemsToDelete.delete(i));
-  else selected.forEach(i => s.itemsToDelete.add(i));
-  notify();
-}
-
-function handleSelectAllGroupsClick() {
-  const s = getState();
-  if (!s.duplicateGroups.length) return;
-  const allIndices = s.duplicateGroups.flatMap(g => g.indices);
-  const allSelected = allIndices.every(i => s.selectedItems.has(i));
-  if (allSelected) allIndices.forEach(i => s.selectedItems.delete(i));
-  else allIndices.forEach(i => s.selectedItems.add(i));
-  notify();
-}
-
-function handleMergeAllGroupsClick() {
-  const s = getState();
-  if (!s.duplicateGroups.length) return;
-  const allIndices = s.duplicateGroups.flatMap(g => g.indices);
-  const allMerged = allIndices.every(i => s.itemsToMerge.has(i));
-  if (allMerged) allIndices.forEach(i => s.itemsToMerge.delete(i));
-  else allIndices.forEach(i => {
-    s.itemsToMerge.add(i);
-    s.itemsToDelete.delete(i);
-  });
-  notify();
-}
-
 function handleFileChange(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) {
@@ -174,18 +141,15 @@ clearSearchBtn.addEventListener("click", () => {
 });
 
 previewToggle.addEventListener("change", () => {
-  const s = getState();
-  s.showPreviews = previewToggle.checked;
-  // toggle previews in place
-  // a full rebuild lags on large vaults
-  togglePreviewSections(s, refs);
+  setShowPreviews(previewToggle.checked);
+  togglePreviewSections(getState(), refs);
 });
 
 fileInput.addEventListener("change", handleFileChange);
 downloadBtn.addEventListener("click", handleDownload);
-deleteSelectedBtn.addEventListener("click", handleDeleteSelected);
-selectAllGroupsBtn.addEventListener("click", handleSelectAllGroupsClick);
-mergeAllGroupsBtn.addEventListener("click", handleMergeAllGroupsClick);
+deleteSelectedBtn.addEventListener("click", toggleDeleteSelected);
+selectAllGroupsBtn.addEventListener("click", toggleSelectAll);
+mergeAllGroupsBtn.addEventListener("click", toggleMergeAll);
 
 attachDelegatedListener(groupsEl);
 

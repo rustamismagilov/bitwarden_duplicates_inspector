@@ -1,5 +1,6 @@
 import { renderItemRow, escapeHtml } from "./components.js";
 import { resolveGroup } from "../core/merge.js";
+import { groupAction, selectAllAction, mergeAllAction, deleteSelectedAction } from "../state.js";
 
 function buildPreviewSectionHtml(state, groupIndex) {
   const g = state.duplicateGroups[groupIndex];
@@ -59,46 +60,9 @@ function renderSummary(state, refs) {
   refs.summaryEl.innerHTML = `<div>${leftHtml}</div>${rightHtml}`;
 }
 
-function updateSelectAllGroupsBtnLabel(state, btn) {
-  if (!state.duplicateGroups.length) {
-    btn.textContent = "Select all entries in all groups";
-    btn.disabled = true;
-    return;
-  }
-  const allIndices = [];
-  state.duplicateGroups.forEach(g => g.indices.forEach(i => allIndices.push(i)));
-  if (!allIndices.length) {
-    btn.textContent = "Select all entries in all groups";
-    btn.disabled = true;
-    return;
-  }
-  const allSelected = allIndices.every(i => state.selectedItems.has(i));
-  btn.disabled = false;
-  btn.textContent = allSelected ? "Unselect all entries in all groups" : "Select all entries in all groups";
-}
-
-function updateMergeAllGroupsBtnLabel(state, btn) {
-  if (!state.duplicateGroups.length) {
-    btn.textContent = "Merge all entries in all groups";
-    btn.disabled = true;
-    return;
-  }
-  btn.disabled = false;
-  const allIndices = [];
-  state.duplicateGroups.forEach(g => g.indices.forEach(i => allIndices.push(i)));
-  const allMerged = allIndices.every(i => state.itemsToMerge.has(i));
-  btn.textContent = allMerged ? "Unmark all merges" : "Merge all entries in all groups";
-}
-
-function updateDeleteSelectedBtnLabel(state, btn) {
-  if (!state.selectedItems.size) {
-    btn.textContent = "Mark selected for deletion";
-    btn.disabled = true;
-    return;
-  }
-  btn.disabled = false;
-  const allSelectedAreDeleted = Array.from(state.selectedItems).every(i => state.itemsToDelete.has(i));
-  btn.textContent = allSelectedAreDeleted ? "Unmark selected for deletion" : "Mark selected for deletion";
+function renderGlobalButton(btn, action) {
+  btn.textContent = action.label;
+  btn.disabled = action.disabled;
 }
 
 function renderGroupsMarkup(state) {
@@ -146,29 +110,11 @@ function renderGroupsMarkup(state) {
     htmlParts.push(`</div>`);
 
     const selectAllLabel = allSelected ? "Unselect all in group" : "Select all in group";
-
-    let deleteLabel = "Mark group for deletion";
-    const anySelectedDeleted = selectedInGroup.some(i => state.itemsToDelete.has(i));
-    if (anySelectedDeleted) {
-      deleteLabel = "Unmark selected for deletion";
-    } else if (selectedCount > 0) {
-      deleteLabel = "Mark selected for deletion";
-    }
-
-    let mergeLabel = "Mark to merge entire group";
-    let mergeDisabled = false;
-    const anySelectedMerged = selectedInGroup.some(i => state.itemsToMerge.has(i));
-
-    if (anySelectedMerged) {
-      mergeLabel = "Unmark merge";
-    } else if (selectedCount > 1) {
-      mergeLabel = "Merge selected entries";
-    } else if (selectedCount === 1) {
-      mergeLabel = "Merge selected entries";
-      mergeDisabled = true;
-    }
-
-    const disabledAttr = mergeDisabled ? "disabled" : "";
+    const mergeAction = groupAction(state, groupIndex, "merge");
+    const deleteAction = groupAction(state, groupIndex, "delete");
+    const mergeLabel = mergeAction.label;
+    const deleteLabel = deleteAction.label;
+    const disabledAttr = mergeAction.disabled ? `disabled title="Select at least two entries to merge"` : "";
 
     htmlParts.push(`<div class="group-actions">
       <button type="button"
@@ -274,9 +220,9 @@ export function renderUI(state, refs) {
 
   refs.downloadBtn.disabled = !state.items.length;
 
-  updateSelectAllGroupsBtnLabel(state, refs.selectAllGroupsBtn);
-  updateMergeAllGroupsBtnLabel(state, refs.mergeAllGroupsBtn);
-  updateDeleteSelectedBtnLabel(state, refs.deleteSelectedBtn);
+  renderGlobalButton(refs.selectAllGroupsBtn, selectAllAction(state));
+  renderGlobalButton(refs.mergeAllGroupsBtn, mergeAllAction(state));
+  renderGlobalButton(refs.deleteSelectedBtn, deleteSelectedAction(state));
 
   if (!state.duplicateGroups.length) {
     refs.hintEl.textContent = "";
