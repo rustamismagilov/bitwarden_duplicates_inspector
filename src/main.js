@@ -16,6 +16,7 @@ import { parseVaultExport } from "./core/vault.js";
 import { findOversizedFields } from "./core/limits.js";
 import { renderUI, applyFilter, togglePreviewSections } from "./ui/render.js";
 import { attachDelegatedListener } from "./ui/events.js";
+import { initTheme } from "./ui/theme.js";
 
 const fileInput = document.getElementById("fileInput");
 const fileLabelText = document.getElementById("fileLabelText");
@@ -45,31 +46,7 @@ const refs = {
   groupsEl,
 };
 
-function setTheme(theme) {
-  const body = document.body;
-  if (theme === "dark") body.classList.add("theme-dark");
-  else body.classList.remove("theme-dark");
-  try { localStorage.setItem("bwTheme", theme); } catch {}
-}
-
-function initTheme() {
-  let saved = null;
-  try { saved = localStorage.getItem("bwTheme"); } catch {}
-  if (saved !== "light" && saved !== "dark") {
-    const prefersDark =
-      window.matchMedia &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches;
-    saved = prefersDark ? "dark" : "light";
-  }
-  setTheme(saved);
-}
-
-initTheme();
-
-themeToggleBtn.addEventListener("click", () => {
-  const isDark = document.body.classList.contains("theme-dark");
-  setTheme(isDark ? "light" : "dark");
-});
+initTheme(themeToggleBtn);
 
 function setStatus(msg, isError = false) {
   statusEl.textContent = msg || "";

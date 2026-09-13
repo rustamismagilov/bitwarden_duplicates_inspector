@@ -34,6 +34,16 @@ function shouldShowPreview(state, g) {
   return state.showPreviews && g.indices.some(i => state.itemsToMerge.has(i) || state.itemsToDelete.has(i));
 }
 
+// the summary and hint are live regions, so a screen reader announces every write
+// only touch them when the text really changes
+const lastHtml = new WeakMap();
+
+function writeHtml(el, html) {
+  if (lastHtml.get(el) === html) return;
+  lastHtml.set(el, html);
+  el.innerHTML = html;
+}
+
 function renderSummary(state, refs) {
   const totalItems = state.items.length;
   const groupsCount = state.duplicateGroups.length;
@@ -54,7 +64,7 @@ function renderSummary(state, refs) {
   const finalExportCount = totalItems - state.itemsToDelete.size - mergeReduction;
 
   if (!totalItems) {
-    refs.summaryEl.innerHTML = "";
+    writeHtml(refs.summaryEl, "");
     return;
   }
 
@@ -68,7 +78,7 @@ function renderSummary(state, refs) {
     `<small class="text-muted">(${state.itemsToDelete.size} deleted, ${mergeReduction} merged)</small>` +
     `</div>`;
 
-  refs.summaryEl.innerHTML = `<div>${leftHtml}</div>${rightHtml}`;
+  writeHtml(refs.summaryEl, `<div>${leftHtml}</div>${rightHtml}`);
 }
 
 function renderGlobalButton(btn, action) {
@@ -216,7 +226,7 @@ function renderControls(state, refs) {
   } else if (state.filterText && !state.duplicateGroups.some((g, gi) => isGroupVisible(state, gi))) {
     hint = "No groups match the filter.";
   }
-  refs.hintEl.textContent = hint;
+  if (refs.hintEl.textContent !== hint) refs.hintEl.textContent = hint;
 }
 
 // hides groups that do not match the filter without rebuilding the list

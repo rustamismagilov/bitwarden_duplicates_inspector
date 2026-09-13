@@ -1,15 +1,12 @@
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --bg: #f3f4f6;
   --bg-card: #ffffff;
   --border: #6b7280;
   --text: #111827;
   --muted: #6b7280;
   --accent: #2563eb;
-  --accent-soft: #dbeafe;
-  --accent-contrast: #ffffff;
   --danger: #dc2626;
-  --danger-soft: #fee2e2;
   --badge-bg: #e5e7eb;
   --badge-border: #9ca3af;
   --badge-text: #374151;
@@ -35,10 +32,7 @@ body.theme-dark {
   --text: #e5e7eb;
   --muted: #9ca3af;
   --accent: #3b82f6;
-  --accent-soft: #1e3a8a;
-  --accent-contrast: #f9fafb;
   --danger: #ef4444;
-  --danger-soft: #7f1d1d;
   --badge-bg: #111827;
   --badge-border: #4b5563;
   --badge-text: #d1d5db;
@@ -60,6 +54,7 @@ body {
   margin: 0;
   padding: 0;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -205,19 +200,30 @@ body.theme-dark #themeToggleBtn .icon-moon {
   color: var(--btn-text-color);
 }
 
-.btn-primary { background: var(--accent); border-color: var(--accent); }
-.btn-secondary { background: var(--badge-bg); }
-.btn-danger { background: var(--danger); border-color: var(--danger); }
-
+/* the solid buttons keep the same colors in both themes, white text stays readable on them */
+.btn-primary,
 .btn-merge-group {
-  background: #2563eb !important;
-  border-color: #2563eb !important;
-  color: #ffffff !important;
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
 }
 
-.btn-merge-group.btn-merge-active {
-  background: #2563eb !important;
-  color: #ffffff !important;
+.btn-secondary {
+  background: #4b5563;
+  border-color: #374151;
+  color: #ffffff;
+}
+
+.btn-danger {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.btn:focus-visible,
+.file-label:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .btn:disabled {
@@ -225,8 +231,16 @@ body.theme-dark #themeToggleBtn .icon-moon {
   cursor: default;
 }
 
-.file-label { cursor: pointer; }
-.file-label input { display: none; }
+.file-label { cursor: pointer; position: relative; }
+
+/* hidden from view but still in the tab order, so the picker opens from the keyboard */
+.file-label input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
 
 #status {
   font-size: 0.85rem;
@@ -308,9 +322,6 @@ body.theme-dark #themeToggleBtn .icon-moon {
   align-items: center;
 }
 
-.meta-line .username {
-
-}
 
 .meta-line .count { opacity: 0.8; }
 
@@ -332,12 +343,12 @@ body.theme-dark #themeToggleBtn .icon-moon {
   color: var(--badge-text);
 }
 
-.tag-fav { border-color: #f39c12; color: #fbbf24; }
+.tag-fav { border-color: var(--warning); color: var(--warning); }
 .tag-no-login { border-style: dashed; }
 
 .tag-merge {
-  border-color: #2563eb;
-  color: #2563eb;
+  border-color: var(--accent);
+  color: var(--accent);
   background: rgba(37, 99, 235, 0.08);
 }
 
@@ -451,7 +462,11 @@ th {
 details summary {
   cursor: pointer;
   list-style: none;
-  outline: none;
+}
+
+details summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 details summary::-webkit-details-marker { display: none; }
@@ -511,27 +526,6 @@ input[type="checkbox"]::after {
 
 input[type="checkbox"]:checked::after { display: block; }
 
-#selectAllGroupsBtn,
-#mergeAllGroupsBtn,
-.file-label {
-  background: #4b5563;
-  border-color: #374151;
-}
-
-.btn-select-group {
-  background: #4b5563;
-  border-color: #374151;
-}
-
-#selectAllGroupsBtn,
-#mergeAllGroupsBtn,
-#deleteSelectedBtn,
-#downloadBtn,
-.btn-select-group,
-.btn-delete-group,
-.file-label {
-  color: #ffffff !important;
-}
 
 .toggle-wrapper {
   display: inline-flex;
@@ -543,6 +537,14 @@ input[type="checkbox"]:checked::after { display: block; }
 }
 
 @media (max-width: 768px) {
+  /* let the whole page scroll, a fixed header would leave little room for the list */
+  body {
+    height: auto;
+    overflow: visible;
+  }
+  #groups {
+    overflow: visible;
+  }
   .controls-top {
     flex-direction: column;
     align-items: stretch;

@@ -8,7 +8,7 @@ function escapeHtml(str) {
 }
 
 function formatDate(str) {
-  if (!str) return "—";
+  if (!str) return "-";
   const d = new Date(str);
   if (isNaN(d.getTime())) return str;
   return d.toLocaleString();
@@ -30,7 +30,7 @@ export function renderItemRow(state, it, idx, { preview = false, sole = false, m
 
   let urisHtml = "";
   if (uris.length === 0) {
-    urisHtml = "—";
+    urisHtml = "-";
   } else {
     urisHtml = "<ul class=\"uri-list\">" + uris.map(u => {
       return "<li>" + escapeHtml(u.uri || "") + "</li>";
@@ -39,7 +39,7 @@ export function renderItemRow(state, it, idx, { preview = false, sole = false, m
 
   let notesHtml = "";
   if (!notes) {
-    notesHtml = `<span class="note-empty">—</span>`;
+    notesHtml = `<span class="note-empty">-</span>`;
   } else {
     const short = notes.length > 120 ? notes.slice(0, 120) + "…" : notes;
     notesHtml =
@@ -67,7 +67,7 @@ export function renderItemRow(state, it, idx, { preview = false, sole = false, m
 
     const checkedAttr = isSelected ? "checked" : "";
     checkHtml = `<td class="col-select" style="text-align:center;">
-      <input type="checkbox" class="item-select" data-action="toggle-select" data-index="${idx}" ${checkedAttr} />
+      <input type="checkbox" class="item-select" data-action="toggle-select" data-index="${idx}" aria-label="Select ${escapeHtml(name || "(no name)")}" ${checkedAttr} />
     </td>`;
   } else {
     checkHtml = `<td class="col-select" style="text-align:center; color: var(--muted); font-weight:600;">Final Result</td>`;
