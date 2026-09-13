@@ -1,8 +1,9 @@
 import { renderItemRow, escapeHtml } from "./components.js";
-import { mergeSameAccountGroup } from "../core/merge.js";
+import { resolveGroup } from "../core/merge.js";
 
 function buildPreviewSectionHtml(state, groupIndex) {
-  const previewItems = generateGroupPreview(state, groupIndex);
+  const g = state.duplicateGroups[groupIndex];
+  const previewItems = resolveGroup(state.items, g, state.itemsToMerge, state.itemsToDelete);
   const rowsHtml = previewItems
     .map((pit, pidx) => renderItemRow(state, pit, pidx, true))
     .join("");
@@ -19,28 +20,6 @@ function buildPreviewSectionHtml(state, groupIndex) {
     <tbody>${rowsHtml}</tbody>
     </table>
   </div>`;
-}
-
-function generateGroupPreview(state, groupIndex) {
-  const g = state.duplicateGroups[groupIndex];
-  const indices = g.indices;
-  const kept = [];
-  const toMerge = [];
-
-  indices.forEach(i => {
-    if (state.itemsToDelete.has(i)) return;
-    if (state.itemsToMerge.has(i)) toMerge.push(state.items[i]);
-    else kept.push(state.items[i]);
-  });
-
-  if (toMerge.length > 1) {
-    const merged = mergeSameAccountGroup(toMerge);
-    kept.push(merged);
-  } else {
-    toMerge.forEach(it => kept.push(it));
-  }
-
-  return kept;
 }
 
 function renderSummary(state, refs) {

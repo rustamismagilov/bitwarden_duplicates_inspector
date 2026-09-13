@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeSameAccountGroup, buildExport } from "../src/core/merge.js";
+import { mergeSameAccountGroup, buildExport, resolveGroup } from "../src/core/merge.js";
 import { computeDuplicateGroups } from "../src/core/dedup.js";
 
 import simpleDupe from "./fixtures/simple-dupe.json" with { type: "json" };
@@ -281,6 +281,35 @@ describe("mergeSameAccountGroup field conflicts", () => {
   });
 });
 
+describe("resolveGroup", () => {
+  it("returns exactly the entries the export writes for that group", () => {
+    const entry = (id, date, pw, notes) => ({ id, type: 1, name: "Amazon", creationDate: date, revisionDate: date, notes,
+      login: { username: "me@x.com", password: pw, uris: [{ match: null, uri: "https://amazon.com" }] } });
+    const items = [
+      entry("c1", "2018-01-01", "old-pw", "first"),
+      entry("c2", "2020-01-01", "mid-pw", ""),
+      entry("c3", "2024-01-01", "new-pw", "third")
+    ];
+    const groups = computeDuplicateGroups(items);
+    expect(groups).toHaveLength(1);
+    for (const marks of [
+      { itemsToMerge: new Set([1, 2]), itemsToDelete: new Set([0]) },
+      { itemsToMerge: new Set([0, 1, 2]), itemsToDelete: new Set() },
+      { itemsToMerge: new Set([2]), itemsToDelete: new Set([1]) }
+    ]) {
+      const exported = buildExport({ vaultData: { encrypted: false, folders: [], items }, items, duplicateGroups: groups, ...marks });
+      const preview = resolveGroup(items, groups[0], marks.itemsToMerge, marks.itemsToDelete);
+      expect(preview).toEqual(exported.items);
+    }
+  });
+
+  it("returns an empty list when every entry is deleted", () => {
+    const vault = structuredClone(simpleDupe);
+    const groups = computeDuplicateGroups(vault.items);
+    expect(resolveGroup(vault.items, groups[0], new Set(), new Set([0, 1]))).toEqual([]);
+  });
+});
+
 describe("buildExport", () => {
   it("throws when vaultData is missing", () => {
     expect(() => buildExport({
@@ -367,6 +396,54 @@ describe("buildExport", () => {
     });
     expect(result.items).toHaveLength(1);
     expect(result.items[0].id).toBe("a1");
+  });
+
+  it("keeps entries in their original order and puts the merged entry where the kept one was", () => {
+    const at = (id, date, user) => ({ id, type: 1, name: id, creationDate: date, revisionDate: date,
+      login: { username: user, password: "p", uris: [{ match: null, uri: "https://x.com" }] } });
+    const items = [
+      at("lonely", "2020-01-01", "solo"),
+      at("newer", "2022-01-01", "u"),
+      at("between", "2020-01-01", "other"),
+      at("older", "2021-01-01", "u"),
+      at("last", "2020-01-01", "someone")
+    ];
+    const groups = computeDuplicateGroups(items);
+    const result = buildExport({
+      vaultData: { encrypted: false, folders: [], items },
+      items, duplicateGroups: groups,
+      itemsToMerge: new Set([1, 3]), itemsToDelete: new Set()
+    });
+    expect(result.items.map(it => it.id)).toEqual(["lonely", "between", "older", "last"]);
+  });
+
+  it("keeps a lone merge mark in a group as an ordinary entry", () => {
+    const items = JSON.parse(JSON.stringify(simpleDupe.items));
+    const result = buildExport({
+      vaultData: { encrypted: false, folders: [], items },
+      items, duplicateGroups: computeDuplicateGroups(items),
+      itemsToMerge: new Set([1]), itemsToDelete: new Set()
+    });
+    expect(result.items).toEqual(items);
+  });
+
+  it("drops a merge-marked entry that is also marked for deletion", () => {
+    const entry = (id, date, pw, notes) => ({ id, type: 1, name: "Amazon", creationDate: date, revisionDate: date, notes,
+      login: { username: "me@x.com", password: pw, uris: [{ match: null, uri: "https://amazon.com" }] } });
+    const items = [
+      entry("c1", "2018-01-01", "old-pw", "first"),
+      entry("c2", "2020-01-01", "mid-pw", ""),
+      entry("c3", "2024-01-01", "new-pw", "third")
+    ];
+    const result = buildExport({
+      vaultData: { encrypted: false, folders: [], items },
+      items, duplicateGroups: computeDuplicateGroups(items),
+      itemsToMerge: new Set([0, 1, 2]), itemsToDelete: new Set([0])
+    });
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].id).toBe("c2");
+    expect(result.items[0].notes).toMatch(/new-pw/);
+    expect(result.items[0].notes).not.toMatch(/old-pw/);
   });
 
   it("preserves original vaultData shape (encrypted flag)", () => {

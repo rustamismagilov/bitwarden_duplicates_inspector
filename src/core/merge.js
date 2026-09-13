@@ -166,42 +166,51 @@ export function mergeSameAccountGroup(groupItems) {
   return base;
 }
 
+// what the queued marks do to one group
+// replaced maps the kept entry's index to the merged item, dropped holds every index that disappears
+export function planGroup(items, group, itemsToMerge, itemsToDelete) {
+  const replaced = new Map();
+  const dropped = new Set(group.indices.filter(i => itemsToDelete.has(i)));
+  const toMerge = group.indices.filter(i => itemsToMerge.has(i) && !itemsToDelete.has(i));
+
+  if (toMerge.length > 1) {
+    const mergeItems = toMerge.map(i => items[i]);
+    const keptIndex = toMerge[keptEntryIndex(mergeItems)];
+    replaced.set(keptIndex, mergeSameAccountGroup(mergeItems));
+    toMerge.forEach(i => { if (i !== keptIndex) dropped.add(i); });
+  }
+
+  return { replaced, dropped };
+}
+
+// the entries a group turns into, in their original order
+// the preview uses this so it always matches the download
+export function resolveGroup(items, group, itemsToMerge, itemsToDelete) {
+  const { replaced, dropped } = planGroup(items, group, itemsToMerge, itemsToDelete);
+  return group.indices
+    .filter(i => !dropped.has(i))
+    .map(i => replaced.get(i) ?? items[i]);
+}
+
 export function buildExport({ vaultData, items, duplicateGroups, itemsToMerge, itemsToDelete }) {
   if (!vaultData || !Array.isArray(items)) {
     throw new Error("buildExport: vaultData and items[] are required");
   }
 
-  const itemCount = items.length;
-  const removed = new Array(itemCount).fill(false);
-  const resultItems = [];
-
-  duplicateGroups.forEach((g) => {
-    const indices = g.indices;
-    const kept = indices.filter(i => !itemsToDelete.has(i));
-    const toMerge = kept.filter(i => itemsToMerge.has(i));
-    const leftOver = kept.filter(i => !itemsToMerge.has(i));
-
-    if (toMerge.length > 1) {
-      const merged = mergeSameAccountGroup(toMerge.map(i => items[i]));
-      resultItems.push(merged);
-      toMerge.forEach(i => removed[i] = true);
-    }
-
-    leftOver.forEach(i => {
-      resultItems.push(items[i]);
-      removed[i] = true;
-    });
-
-    indices.forEach(i => {
-      if (itemsToDelete.has(i)) removed[i] = true;
-    });
-  });
-
-  for (let i = 0; i < itemCount; i++) {
-    if (itemsToDelete.has(i)) continue;
-    if (removed[i]) continue;
-    resultItems.push(items[i]);
+  const replaced = new Map();
+  const dropped = new Set(itemsToDelete);
+  for (const g of duplicateGroups) {
+    const plan = planGroup(items, g, itemsToMerge, itemsToDelete);
+    plan.replaced.forEach((merged, i) => replaced.set(i, merged));
+    plan.dropped.forEach(i => dropped.add(i));
   }
+
+  // keep the original order, with each merged entry where its kept entry was
+  const resultItems = [];
+  items.forEach((it, i) => {
+    if (dropped.has(i)) return;
+    resultItems.push(replaced.get(i) ?? it);
+  });
 
   return Object.assign({}, vaultData, {
     items: resultItems
