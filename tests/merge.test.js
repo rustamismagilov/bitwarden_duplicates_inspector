@@ -272,6 +272,40 @@ describe("mergeSameAccountGroup field conflicts", () => {
     expect(merged.collectionIds).toEqual(["c1", "c2"]);
   });
 
+  it("keeps the merged entry active when any merged entry was not archived", () => {
+    const merged = mergeSameAccountGroup([
+      entry("old", "2019-01-01", { archivedDate: "2022-01-01T00:00:00.000Z" }),
+      entry("new", "2020-01-01", { archivedDate: null })
+    ]);
+    expect(merged.id).toBe("old");
+    expect(merged.archivedDate).toBeNull();
+  });
+
+  it("keeps the merged entry archived when every merged entry was", () => {
+    const merged = mergeSameAccountGroup([
+      entry("old", "2019-01-01", { archivedDate: "2022-01-01T00:00:00.000Z" }),
+      entry("new", "2020-01-01", { archivedDate: "2023-01-01T00:00:00.000Z" })
+    ]);
+    expect(merged.archivedDate).toBe("2022-01-01T00:00:00.000Z");
+  });
+
+  it("puts an unfiled kept entry into the folder of the oldest entry that has one", () => {
+    const merged = mergeSameAccountGroup([
+      entry("old", "2019-01-01", { folderId: null }),
+      entry("mid", "2020-01-01", { folderId: "f-work" }),
+      entry("new", "2021-01-01", { folderId: "f-home" })
+    ]);
+    expect(merged.folderId).toBe("f-work");
+  });
+
+  it("leaves the kept entry's own folder alone", () => {
+    const merged = mergeSameAccountGroup([
+      entry("old", "2019-01-01", { folderId: "f-home" }),
+      entry("new", "2020-01-01", { folderId: "f-work" })
+    ]);
+    expect(merged.folderId).toBe("f-home");
+  });
+
   it("leaves the null collection placeholder alone when there is nothing to add", () => {
     const merged = mergeSameAccountGroup([
       entry("a", "2019-01-01", { collectionIds: [null] }),

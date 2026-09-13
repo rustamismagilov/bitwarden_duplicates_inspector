@@ -49,6 +49,7 @@ export function renderItemRow(state, it, idx, { preview = false, sole = false, m
 
   const favTag = it.favorite ? `<span class="tag tag-fav">★ favorite</span>` : "";
   const typeTag = it.type !== 1 ? `<span class="tag tag-no-login">type=${escapeHtml(String(it.type))}</span>` : "";
+  const archivedTag = it.archivedDate ? `<span class="tag">archived</span>` : "";
   const keptTag = mergeBase
     ? `<span class="tag tag-kept" title="The merge keeps this entry, the oldest one, and adds what the others have. Passwords that differ are written to its notes.">kept in merge</span>`
     : "";
@@ -77,7 +78,7 @@ export function renderItemRow(state, it, idx, { preview = false, sole = false, m
     ${checkHtml}
     <td class="col-name">
       ${escapeHtml(name || "(no name)")}
-      ${favTag}${typeTag}${keptTag}
+      ${favTag}${typeTag}${archivedTag}${keptTag}
       <span class="badge badge-id">id: ${escapeHtml(it.id || "new")}</span>
     </td>
     <td class="col-dates">

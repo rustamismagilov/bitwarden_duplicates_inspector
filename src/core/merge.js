@@ -110,6 +110,15 @@ export function mergeSameAccountGroup(groupItems) {
 
   if (others.some(it => it.reprompt === 1)) base.reprompt = 1;
 
+  // an archived old duplicate merged with one still in use should come back in use
+  if (base.archivedDate && groupItems.some(it => !it.archivedDate)) base.archivedDate = null;
+
+  // an unfiled kept entry goes into the folder of the oldest entry that has one
+  if (!base.folderId) {
+    const filed = oldestFirst.find(it => it.folderId);
+    if (filed) base.folderId = filed.folderId;
+  }
+
   const collections = uniqueBy(oldestFirst.flatMap(it => asArray(it.collectionIds)), id => id);
   if (collections.length) base.collectionIds = collections;
 
