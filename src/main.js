@@ -13,6 +13,7 @@ import {
 } from "./state.js";
 import { buildExport } from "./core/merge.js";
 import { parseVaultExport } from "./core/vault.js";
+import { findOversizedFields } from "./core/limits.js";
 import { renderUI, applyFilter, togglePreviewSections } from "./ui/render.js";
 import { attachDelegatedListener } from "./ui/events.js";
 
@@ -85,7 +86,21 @@ function downloadJson(data, filename) {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  // revoking right away can cancel the download in some browsers
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// merged notes can grow past what bitwarden accepts, and then it rejects the whole file
+function confirmOversizedFields(items) {
+  const problems = findOversizedFields(items);
+  if (!problems.length) return true;
+  const shown = problems.slice(0, 10).map(p => `- ${p.name}: ${p.field}`);
+  if (problems.length > shown.length) shown.push(`- and ${problems.length - shown.length} more`);
+  return confirm(
+    "Bitwarden will reject this file, because these entries have a field that is too long once encrypted:\n\n" +
+    shown.join("\n") +
+    "\n\nUnmark those merges or shorten the notes first. Download anyway?"
+  );
 }
 
 function handleDownload() {
@@ -99,6 +114,7 @@ function handleDownload() {
       itemsToMerge: s.itemsToMerge,
       itemsToDelete: s.itemsToDelete,
     });
+    if (!confirmOversizedFields(outputData.items)) return;
     downloadJson(outputData, "bitwarden_merged.json");
     downloadedMarks = marksSnapshot(s);
   } catch (err) {
