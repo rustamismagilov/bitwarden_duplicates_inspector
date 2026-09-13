@@ -5,46 +5,62 @@ Find and merge duplicate entries in your Bitwarden vault. Runs entirely in your 
 > [!NOTE]
 > **Browser-only**, no installation required. Tested on Chrome, Firefox, and Edge. You need a .json (plaintext) export of your Bitwarden vault.
 
-Since [Bitwarden has no built-in deduplication](https://community.bitwarden.com/t/duplicate-removal-tool-report-including-merge/648), I build this tool which runs as a single HTML file in your browser and the JSON you load is read locally.
+Since [Bitwarden has no built-in deduplication](https://community.bitwarden.com/t/duplicate-removal-tool-report-including-merge/648), I built this tool. It is a single HTML file that you open in your browser, and the export you load is only read locally.
 
 ## Quick start
 
 1. Download [the latest release](https://github.com/rustamismagilov/bitwarden_duplicates_inspector/releases/latest/download/index.html).
 2. Open it in your browser. No install, no network needed.
-3. [Export your Bitwarden vault](https://bitwarden.com/help/export-your-data/) as **.json (plaintext)**.
-4. Click **Choose file** and select exported .json vault.
-5. Review the duplicate groups, mark what to merge or delete, click **Download updated export**.
-6. [Import the merged file back into Bitwarden](https://bitwarden.com/help/import-data/). Keep your original export around as a backup until you manually verified.
+3. [Export your Bitwarden vault](https://bitwarden.com/help/export-your-data/) as **.json (plaintext)**. Encrypted and password-protected exports are rejected.
+4. Click **Choose file** and select your exported .json file.
+5. Review the duplicate groups, mark what to merge or delete, and click **Download updated export**.
+6. [Import the merged file back into Bitwarden](https://bitwarden.com/help/import-data/).
+7. When everything checks out, delete both plaintext files: your original export and `bitwarden_merged.json`.
 
 > [!WARNING]
-> Always keep your original export until you manually reviewed everything. Bitwarden's import is additive. If you re-import without first purging, you will end up with the old entries AND the merged ones. Either [purge the vault](https://bitwarden.com/help/product-faqs/#q-what-happens-when-i-purge-my-vault) first or manually delete the original entries.
+> Bitwarden's import is additive. If you import without removing the old entries first, you end up with the old entries AND the merged ones. You can either [purge the vault](https://bitwarden.com/help/product-faqs/#q-what-happens-when-i-purge-my-vault) first or delete the original entries by hand.
+>
+> Either way, the entries you remove take their **file attachments** with them, and a .json export does not contain attachments, so the import cannot bring them back. Purging also empties the trash for good. If some entries have attachments, save those files first and upload them again after the import.
+>
+> Keep your original export until you have checked the imported vault.
 
 ## How it works
 
 ### Detection
 
-Two entries are grouped as duplicates when they share both:
+Two login entries are grouped as duplicates when they share both:
 
-- the **canonical website key** (host extracted from a URI, falling back to email domain, falling back to a domain mentioned in the entry name), and
-- the **username** (case-insensitive)
+- the **site**, and
+- the **username** (case-insensitive). Entries without a username are never grouped.
+
+The site comes from the first entry URL that has a host. Web addresses are preferred over app links like `androidapp://`. If an entry has no usable URL, the site falls back to the domain of an email username, and then to a domain written in the entry name.
 
 A few things worth knowing:
 
-- `https://example.com`, `example.com`, and `http://example.com/login` all resolve to `example.com` and group together.
-- `www.example.com` does NOT match `example.com`. They often have different login flows, so this is deliberate. If you want to merge them, do it manually with the group buttons.
+- `https://example.com`, `example.com`, `http://example.com/login` and `https://example.com/?ref=1` all count as `example.com`.
+- Ports only matter for IP addresses. `https://192.168.1.10:8080` and `https://192.168.1.10:9090` are different sites, `https://example.com:8443` is still `example.com`.
+- `www.example.com` does NOT match `example.com`, since the two sometimes have separate accounts. See [known issues](#known-issues).
+- Groups found through the email domain or the entry name are tagged **matched by email domain** or **matched by entry name**. These are guesses. Two unrelated accounts that both use `me@gmail.com` and have no URL end up in one `gmail.com` group, so check them before merging.
 
-> [!WARNING]
-> Only login entries (type 1) are inspected. Secure notes, cards, and identities are passed through to the export untouched.
+> [!NOTE]
+> Only login entries are compared. Secure notes, cards and identities are copied to the export unchanged.
 
 ### Merging
 
-When you mark a group for merge:
+When two or more entries of a group are marked for merge, they become one entry:
 
-- The entry with the oldest **creation date** is kept (`creationDate`, falling back to `revisionDate`).
-- All unique URIs from every entry in the group are collected onto the kept entry.
-- If passwords differ, the extras are appended to the kept entry's notes as `Additional passwords seen in merged entries: ...`. **You never silently lose a password.**
-- Notes from every entry are preserved.
-- Favorite status is preserved if any source was favorited.
+- The entry with the oldest **creation date** is kept (`creationDate`, falling back to `revisionDate`). The table tags it **kept in merge**.
+- Its password stays active. If it has no password, the password of the oldest entry that has one is used.
+- Every other password is written to the kept entry's notes under `Additional passwords seen in merged entries:`, one per line.
+- TOTP secrets, passkeys and custom fields from the other entries are added to the kept entry. A login holds a single TOTP secret, so when entries have different secrets the others go to notes under `Additional TOTP secrets seen in merged entries:`.
+- Password history from all entries is combined, newest first. Bitwarden keeps only the 5 newest entries on import, so anything older goes to notes.
+- All URLs are collected onto the kept entry with their match settings.
+- Notes from every entry are kept, without repeating identical ones.
+- The entry is a favorite if any of the merged entries was, and asks for the master password again if any of them did.
+
+Nothing else in the export changes. Entries you did not touch are written exactly as they were, in their original order, and folders stay as they are.
+
+Before the download, the tool checks whether a merged entry has grown past what Bitwarden accepts, for example notes over its length limit. Bitwarden rejects the whole import in that case, so you get a warning listing those entries first.
 
 ### Group controls
 
@@ -53,33 +69,47 @@ Each group has three buttons. They are selection-aware:
 - With no checkboxes ticked, the buttons act on the entire group.
 - With one or more checkboxes ticked, the buttons act only on those entries.
 
-| Button | Default action | When entries are selected |
+| Button | Nothing ticked | Entries ticked |
 |---|---|---|
-| Select all in group | tick every entry | untick every entry, if all are selected |
-| Mark to merge entire group | mark every entry for merge | mark only selected (needs 2+ selected) |
-| Mark group for deletion | mark every entry for delete | mark only selected for delete |
+| Select all in group | tick every entry | untick every entry, if all are ticked |
+| Mark to merge entire group | mark every entry for merge | mark the ticked entries (needs 2 or more) |
+| Mark group for deletion | mark every entry for deletion | mark the ticked entries for deletion |
 
-The global buttons at the top (`Select all entries in all groups`, `Merge all entries in all groups`, `Mark selected for deletion`) work the same way across all groups at once.
+Once something is marked, the button label changes to the matching **Unmark** action. Marking an entry for merge clears its deletion mark, and the other way round.
 
-### Result preview
+### Top controls
 
-Toggle **Enable result previews** to see what each group will look like after the queued merges and deletions are applied. Groups with no actions queued show no preview, since the preview would just duplicate the main table.
+- **Filter** narrows the list by site, username, entry name or URL.
+- **Select all entries in all groups** ticks every entry in the groups you can see.
+- **Merge all groups matched by URL** marks every visible group for merge, except the ones matched by email domain or entry name.
+- **Mark selected for deletion** marks the ticked entries in the visible groups.
+- **Enable result previews** shows what each group turns into once the queued merges and deletions are applied. The preview uses the same code as the download.
+- The sun and moon button switches between light and dark. Until you use it, the page follows your system theme.
+
+If you try to load another file or close the tab while there are merges or deletions you have not downloaded yet, the page asks first.
 
 ## Known issues
 
-- `www.example.com` and `example.com` form separate duplicate groups. The tool deliberately does not strip `www.` because the two often serve different login flows. If your vault has both, merge them manually with the group buttons.
-- Bitwarden's import is additive. If you re-import without first purging, the old entries stay alongside the merged ones. Always purge first, or accept that you will need a second cleanup pass after import.
+- `www.example.com` and `example.com` count as different sites, so a pair with one entry on each does not show up as a group. Change one of the URLs in Bitwarden before exporting, or merge those by hand in Bitwarden.
+- Re-importing loses file attachments of the entries you remove, see the warning in [Quick start](#quick-start).
 
 ## Building from source
+
+You need Node.js 22.12 or newer.
 
 ```sh
 git clone https://github.com/rustamismagilov/bitwarden_duplicates_inspector.git
 cd bitwarden_duplicates_inspector
 npm install
+npm test
 npm run build
 ```
 
-Source lives under `src/` (pure logic in `src/core/`, state in `src/state.js`, UI in `src/ui/`). The build inlines all JavaScript and CSS into a single self-contained HTML file. Each tagged release runs the same build in CI and attaches the artifact to the GitHub release.
+The build writes a single self-contained `dist/index.html` with all JavaScript and CSS inlined. `npm run dev` rebuilds it whenever something under `src/` changes.
+
+Source lives under `src/`: pure logic in `src/core/`, state in `src/state.js`, and the UI in `src/ui/`. The page template is `src/template.html`.
+
+To release, bump the version with `npm version patch` (or `minor`), then push the commit and the tag. The release workflow checks that the tag matches `package.json`, runs the tests, builds the page and attaches it to a GitHub release.
 
 ## License
 
