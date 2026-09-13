@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <!-- blocks fetching anything from the network, the page only runs what is inlined here -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src __CSP_SCRIPT_HASH__; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'" />
   <title>Bitwarden Duplicates Inspector</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>/*__INLINE_CSS__*/</style>
@@ -17,7 +19,7 @@
   </button>
 
   <div id="top-area">
-    <h1>Bitwarden Duplicates Inspector</h1>
+    <h1>Bitwarden Duplicates Inspector <span class="version">v__VERSION__</span></h1>
 
     <div id="controls">
       <div class="controls-top">
