@@ -79,6 +79,53 @@ describe("mergeSameAccountGroup", () => {
     expect(merged.login.password).toBe("old-pw");
   });
 
+  it("takes the password from another entry when the oldest has none", () => {
+    for (const empty of [null, ""]) {
+      const merged = mergeSameAccountGroup([
+        { id: "old", type: 1, creationDate: "2019-01-01", login: { username: "u", password: empty, uris: [] } },
+        { id: "new", type: 1, creationDate: "2024-01-01", login: { username: "u", password: "only-pw", uris: [] } }
+      ]);
+      expect(merged.id).toBe("old");
+      expect(merged.login.password).toBe("only-pw");
+      expect(merged.notes ?? "").not.toMatch(/Additional passwords/);
+    }
+  });
+
+  it("keeps the other passwords in notes when the oldest entry has none", () => {
+    const merged = mergeSameAccountGroup([
+      { id: "old", type: 1, creationDate: "2019-01-01", login: { username: "u", password: "", uris: [] } },
+      { id: "mid", type: 1, creationDate: "2020-01-01", login: { username: "u", password: "mid-pw", uris: [] } },
+      { id: "new", type: 1, creationDate: "2024-01-01", login: { username: "u", password: "new-pw", uris: [] } }
+    ]);
+    expect(merged.login.password).toBe("mid-pw");
+    expect(merged.notes).toBe("Additional passwords seen in merged entries:\nnew-pw");
+  });
+
+  it("lists each extra password on its own line", () => {
+    const merged = mergeSameAccountGroup([
+      { id: "a", type: 1, creationDate: "2019-01-01", login: { username: "u", password: "base", uris: [] } },
+      { id: "b", type: 1, creationDate: "2020-01-01", login: { username: "u", password: "has, comma", uris: [] } },
+      { id: "c", type: 1, creationDate: "2021-01-01", login: { username: "u", password: "plain", uris: [] } }
+    ]);
+    expect(merged.notes).toBe("Additional passwords seen in merged entries:\nhas, comma\nplain");
+  });
+
+  it("never keeps an entry without dates over a dated one", () => {
+    const merged = mergeSameAccountGroup([
+      { id: "undated", type: 1, login: { username: "u", password: "a", uris: [] } },
+      { id: "dated", type: 1, creationDate: "2019-01-01", login: { username: "u", password: "b", uris: [] } }
+    ]);
+    expect(merged.id).toBe("dated");
+  });
+
+  it("does not repeat a note that differs only in surrounding whitespace", () => {
+    const merged = mergeSameAccountGroup([
+      { id: "a", type: 1, creationDate: "2019-01-01", notes: "pin 1234\n", login: { username: "u", password: "p", uris: [] } },
+      { id: "b", type: 1, creationDate: "2020-01-01", notes: "pin 1234", login: { username: "u", password: "p", uris: [] } }
+    ]);
+    expect(merged.notes).toBe("pin 1234\n");
+  });
+
   it("does not duplicate identical note chunks", () => {
     const items = [
       { id: "a", type: 1, name: "x", creationDate: "2020-01-01", revisionDate: "2020-01-01",

@@ -3,17 +3,26 @@ function uriKey(u) {
   return JSON.stringify([u.match ?? null, u.uri ?? ""]);
 }
 
+// entries without a usable date sort last, so they never become the kept entry
+function entryTime(it) {
+  const t = Date.parse(it.creationDate || it.revisionDate || "");
+  return Number.isNaN(t) ? Infinity : t;
+}
+
+// index of the entry a merge keeps: the oldest one, first wins on a tie
+export function keptEntryIndex(groupItems) {
+  let best = 0;
+  groupItems.forEach((it, i) => {
+    if (entryTime(it) < entryTime(groupItems[best])) best = i;
+  });
+  return best;
+}
+
 export function mergeSameAccountGroup(groupItems) {
   if (!groupItems.length) throw new Error("mergeSameAccountGroup called with empty list");
 
-  function revKey(it) {
-    return it.creationDate || it.revisionDate || "";
-  }
-
-  let baseSrc = groupItems[0];
-  for (const it of groupItems) {
-    if (revKey(it) < revKey(baseSrc)) baseSrc = it;
-  }
+  const baseSrc = groupItems[keptEntryIndex(groupItems)];
+  const oldestFirst = [...groupItems].sort((a, b) => entryTime(a) - entryTime(b));
 
   const base = JSON.parse(JSON.stringify(baseSrc));
   const allPasswords = new Set();
@@ -45,24 +54,33 @@ export function mergeSameAccountGroup(groupItems) {
     }
   }
 
-  const mergedNotes = [];
-  if (base.notes) mergedNotes.push(base.notes);
-  for (const n of notesChunks) {
-    if (n && !mergedNotes.includes(n)) mergedNotes.push(n);
-  }
-
-  if (allPasswords.size > 1) {
-    const basePw = baseLogin.password || "";
-    const extraPw = Array.from(allPasswords).filter(p => p && p !== basePw);
-    if (extraPw.length) {
-      mergedNotes.push(
-        "Additional passwords seen in merged entries: " +
-        extraPw.join(", ")
-      );
+  // the oldest entry's password stays active
+  // if it has none, take the password of the oldest entry that does
+  if (!baseLogin.password) {
+    const donor = oldestFirst.find(it => it.login?.password);
+    if (donor) {
+      baseLogin.password = donor.login.password;
+      if ("passwordRevisionDate" in donor.login) {
+        baseLogin.passwordRevisionDate = donor.login.passwordRevisionDate;
+      }
     }
   }
 
-  if (mergedNotes.length) base.notes = mergedNotes.join("\n\n---\n");
+  // compare trimmed notes so trailing whitespace does not repeat a note
+  const baseNotes = (base.notes || "").trim();
+  const mergedNotes = baseNotes ? [baseNotes] : [];
+  for (const n of notesChunks) {
+    if (!mergedNotes.includes(n)) mergedNotes.push(n);
+  }
+
+  // one password per line, since a password can contain commas and spaces
+  const extraPw = Array.from(allPasswords).filter(p => p !== baseLogin.password);
+  if (extraPw.length) {
+    mergedNotes.push("Additional passwords seen in merged entries:\n" + extraPw.join("\n"));
+  }
+
+  const joined = mergedNotes.join("\n\n---\n");
+  if (joined !== baseNotes) base.notes = joined;
 
   return base;
 }
