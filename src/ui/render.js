@@ -1,6 +1,6 @@
 import { renderItemRow, escapeHtml } from "./components.js";
 import { resolveGroup } from "../core/merge.js";
-import { groupAction, selectAllAction, mergeAllAction, deleteSelectedAction } from "../state.js";
+import { groupAction, isGroupVisible, selectAllAction, mergeAllAction, deleteSelectedAction } from "../state.js";
 
 function buildPreviewSectionHtml(state, groupIndex) {
   const g = state.duplicateGroups[groupIndex];
@@ -79,7 +79,7 @@ function renderGroupsMarkup(state) {
     const mergedInGroup = g.indices.filter(i => state.itemsToMerge.has(i)).length;
     const deletedInGroup = g.indices.filter(i => state.itemsToDelete.has(i)).length;
 
-    htmlParts.push(`<div class="group">`);
+    htmlParts.push(`<div class="group" data-group-index="${groupIndex}">`);
     htmlParts.push(`<div class="group-header">`);
     htmlParts.push(`<div class="group-header-main">`);
     htmlParts.push(`<div class="group-header-site">${escapeHtml(site)}</div>`);
@@ -178,9 +178,8 @@ export function togglePreviewSections(state, refs) {
   refs.groupsEl.querySelectorAll(".preview-container").forEach(el => el.remove());
   if (!state.showPreviews) return;
 
-  const groupEls = refs.groupsEl.querySelectorAll(".group");
   state.duplicateGroups.forEach((g, groupIndex) => {
-    const groupEl = groupEls[groupIndex];
+    const groupEl = refs.groupsEl.querySelector(`.group[data-group-index="${groupIndex}"]`);
     if (!groupEl) return;
     const count = g.indices.length;
     const deletedInGroup = g.indices.filter(i => state.itemsToDelete.has(i)).length;
@@ -193,44 +192,27 @@ export function togglePreviewSections(state, refs) {
   });
 }
 
-export function applyFilter(refs) {
-  const term = refs.filterInput.value.toLowerCase().trim();
-  const groups = refs.groupsEl.querySelectorAll(".group");
-  refs.clearSearchBtn.style.display = term ? "block" : "none";
+// the global buttons depend on the filter, so they refresh with it
+function renderControls(state, refs) {
+  renderGlobalButton(refs.selectAllGroupsBtn, selectAllAction(state));
+  renderGlobalButton(refs.mergeAllGroupsBtn, mergeAllAction(state));
+  renderGlobalButton(refs.deleteSelectedBtn, deleteSelectedAction(state));
+  refs.clearSearchBtn.style.display = state.filterText ? "block" : "none";
+}
 
-  groups.forEach(group => {
-    if (!term) {
-      group.style.display = "";
-      return;
-    }
-    const siteEl = group.querySelector(".group-header-site");
-    const usernameEl = group.querySelector(".username");
-    const site = siteEl ? siteEl.textContent.toLowerCase() : "";
-    const username = usernameEl ? usernameEl.textContent.toLowerCase() : "";
-    if (site.includes(term) || username.includes(term)) {
-      group.style.display = "";
-    } else {
-      group.style.display = "none";
-    }
+// hides groups that do not match the filter without rebuilding the list
+export function applyFilter(state, refs) {
+  refs.groupsEl.querySelectorAll(".group").forEach(el => {
+    el.hidden = !isGroupVisible(state, Number(el.dataset.groupIndex));
   });
+  renderControls(state, refs);
 }
 
 export function renderUI(state, refs) {
   renderSummary(state, refs);
 
   refs.downloadBtn.disabled = !state.items.length;
-
-  renderGlobalButton(refs.selectAllGroupsBtn, selectAllAction(state));
-  renderGlobalButton(refs.mergeAllGroupsBtn, mergeAllAction(state));
-  renderGlobalButton(refs.deleteSelectedBtn, deleteSelectedAction(state));
-
-  if (!state.duplicateGroups.length) {
-    refs.hintEl.textContent = "";
-    refs.groupsEl.innerHTML = "";
-    return;
-  }
-
   refs.hintEl.textContent = "";
-  refs.groupsEl.innerHTML = renderGroupsMarkup(state);
-  applyFilter(refs);
+  refs.groupsEl.innerHTML = state.duplicateGroups.length ? renderGroupsMarkup(state) : "";
+  applyFilter(state, refs);
 }

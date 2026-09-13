@@ -4,6 +4,7 @@ import {
   setVault,
   clearVault,
   setShowPreviews,
+  setFilterText,
   toggleSelectAll,
   toggleMergeAll,
   toggleDeleteSelected,
@@ -117,6 +118,7 @@ function handleFileChange(e) {
   const reader = new FileReader();
   reader.onload = evt => {
     try {
+      filterInput.value = "";
       setVault(parseVaultExport(evt.target.result));
       setStatus("");
       searchWrapper.style.display = "block";
@@ -134,10 +136,15 @@ function handleFileChange(e) {
   reader.readAsText(file);
 }
 
-filterInput.addEventListener("input", () => applyFilter(refs));
+filterInput.addEventListener("input", () => {
+  setFilterText(filterInput.value);
+  applyFilter(getState(), refs);
+});
 clearSearchBtn.addEventListener("click", () => {
   filterInput.value = "";
-  applyFilter(refs);
+  setFilterText("");
+  applyFilter(getState(), refs);
+  filterInput.focus();
 });
 
 previewToggle.addEventListener("change", () => {

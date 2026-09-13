@@ -14,6 +14,8 @@ import {
   toggleMergeAll,
   deleteSelectedAction,
   toggleDeleteSelected,
+  setFilterText,
+  isGroupVisible,
 } from "../src/state.js";
 
 const login = (id, user, uri) => ({
@@ -159,6 +161,36 @@ describe("group merge and delete buttons", () => {
   });
 });
 
+describe("filter", () => {
+  it("matches the site, the username, entry names and full URIs, ignoring case", () => {
+    setVault({
+      encrypted: false, folders: [],
+      items: [
+        { id: "1", type: 1, name: "Work GitHub", creationDate: "2020-01-01",
+          login: { username: "Octo", uris: [{ match: null, uri: "https://github.com/orgs/acme" }] } },
+        { id: "2", type: 1, name: "GitHub", creationDate: "2021-01-01",
+          login: { username: "octo", uris: [{ match: null, uri: "https://github.com" }] } }
+      ]
+    });
+    const visibleFor = text => {
+      setFilterText(text);
+      return isGroupVisible(getState(), 0);
+    };
+    expect(visibleFor("GITHUB.COM")).toBe(true);
+    expect(visibleFor("octo")).toBe(true);
+    expect(visibleFor("work")).toBe(true);
+    expect(visibleFor("orgs/acme")).toBe(true);
+    expect(visibleFor("gitlab")).toBe(false);
+    expect(visibleFor("   ")).toBe(true);
+  });
+
+  it("is cleared when a vault is loaded", () => {
+    setFilterText("a.com");
+    loadVault();
+    expect(getState().filterText).toBe("");
+  });
+});
+
 describe("global buttons", () => {
   it("selects every grouped entry, then unselects them", () => {
     expect(selectAllAction(getState()).label).toBe("Select all entries in all groups");
@@ -174,7 +206,7 @@ describe("global buttons", () => {
     toggleMergeAll();
     expect(sorted(getState().itemsToMerge)).toEqual([0, 1, 2, 3, 4]);
     expect(getState().itemsToDelete.size).toBe(0);
-    expect(mergeAllAction(getState()).label).toBe("Unmark all merges");
+    expect(mergeAllAction(getState()).label).toBe("Unmark merges in all groups");
     toggleMergeAll();
     expect(getState().itemsToMerge.size).toBe(0);
   });
@@ -189,6 +221,25 @@ describe("global buttons", () => {
     expect(deleteSelectedAction(getState()).label).toBe("Unmark selected for deletion");
     toggleDeleteSelected();
     expect(getState().itemsToDelete.size).toBe(0);
+  });
+
+  it("only acts on groups the filter leaves visible", () => {
+    setFilterText("b.com");
+    expect(selectAllAction(getState()).label).toBe("Select all entries in visible groups");
+    toggleSelectAll();
+    expect(sorted(getState().selectedItems)).toEqual([3, 4]);
+    toggleMergeAll();
+    expect(sorted(getState().itemsToMerge)).toEqual([3, 4]);
+    expect(mergeAllAction(getState()).label).toBe("Unmark merges in visible groups");
+  });
+
+  it("does not delete selected entries that the filter hides", () => {
+    toggleSelected(0);
+    toggleSelected(3);
+    setFilterText("b.com");
+    expect(deleteSelectedAction(getState()).targets).toEqual([3]);
+    toggleDeleteSelected();
+    expect(sorted(getState().itemsToDelete)).toEqual([3]);
   });
 
   it("disables the buttons when there is nothing to act on", () => {

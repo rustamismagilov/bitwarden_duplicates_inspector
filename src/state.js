@@ -9,6 +9,9 @@ const state = {
   itemsToMerge: new Set(),
   itemsToDelete: new Set(),
   selectedItems: new Set(),
+  // lowercased text the filter looks through, one string per group
+  groupSearchText: [],
+  filterText: "",
   showPreviews: false,
 };
 
@@ -31,10 +34,23 @@ function resetMarks() {
   state.selectedItems = new Set();
 }
 
+// site, username, and every entry's name and uris
+function searchTextFor(items, group) {
+  const parts = [group.site, group.usernameRaw];
+  for (const i of group.indices) {
+    const it = items[i];
+    parts.push(it.name);
+    for (const u of Array.isArray(it.login?.uris) ? it.login.uris : []) parts.push(u?.uri);
+  }
+  return parts.filter(Boolean).join("\n").toLowerCase();
+}
+
 export function setVault(vaultData) {
   state.vaultData = vaultData;
   state.items = Array.isArray(vaultData?.items) ? vaultData.items : [];
   state.duplicateGroups = computeDuplicateGroups(state.items);
+  state.groupSearchText = state.duplicateGroups.map(g => searchTextFor(state.items, g));
+  state.filterText = "";
   resetMarks();
   notify();
 }
@@ -43,8 +59,20 @@ export function clearVault() {
   state.vaultData = null;
   state.items = [];
   state.duplicateGroups = [];
+  state.groupSearchText = [];
+  state.filterText = "";
   resetMarks();
   notify();
+}
+
+// no notify here either
+// filtering only hides groups, so the page updates in place
+export function setFilterText(text) {
+  state.filterText = String(text || "").trim().toLowerCase();
+}
+
+export function isGroupVisible(s, groupIndex) {
+  return !s.filterText || s.groupSearchText[groupIndex].includes(s.filterText);
 }
 
 // no notify here
@@ -139,17 +167,22 @@ export function applyGroupAction(groupIndex, kind) {
   notify();
 }
 
-function allGroupIndices(s) {
-  return s.duplicateGroups.flatMap(g => g.indices);
+// the global buttons only reach groups the filter leaves visible
+function visibleIndices(s) {
+  return s.duplicateGroups.flatMap((g, gi) => (isGroupVisible(s, gi) ? g.indices : []));
+}
+
+function scopeText(s) {
+  return s.filterText ? "visible groups" : "all groups";
 }
 
 export function selectAllAction(s) {
-  const targets = allGroupIndices(s);
+  const targets = visibleIndices(s);
   const all = allIn(s.selectedItems, targets);
   return {
     targets,
     disabled: targets.length === 0,
-    label: all ? "Unselect all entries in all groups" : "Select all entries in all groups",
+    label: `${all ? "Unselect" : "Select"} all entries in ${scopeText(s)}`,
   };
 }
 
@@ -161,13 +194,13 @@ export function toggleSelectAll() {
 }
 
 export function mergeAllAction(s) {
-  const targets = allGroupIndices(s);
+  const targets = visibleIndices(s);
   const all = allIn(s.itemsToMerge, targets);
   return {
     targets,
     mark: !all,
     disabled: targets.length === 0,
-    label: all ? "Unmark all merges" : "Merge all entries in all groups",
+    label: all ? `Unmark merges in ${scopeText(s)}` : `Merge all entries in ${scopeText(s)}`,
   };
 }
 
@@ -179,7 +212,8 @@ export function toggleMergeAll() {
 }
 
 export function deleteSelectedAction(s) {
-  const targets = [...s.selectedItems];
+  const visible = new Set(visibleIndices(s));
+  const targets = [...s.selectedItems].filter(i => visible.has(i));
   const all = allIn(s.itemsToDelete, targets);
   return {
     targets,
