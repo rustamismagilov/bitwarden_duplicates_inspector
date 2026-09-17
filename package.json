@@ -1,6 +1,6 @@
 {
   "name": "bitwarden-duplicates-inspector",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "type": "module",
   "description": "Browser-based tool for finding and merging duplicate entries in a Bitwarden vault export.",
