@@ -27,6 +27,37 @@ describe("formatDate", () => {
   });
 });
 
+describe("notesSummary with merged secrets", () => {
+  it("hides a merged totp secret or older password history too", () => {
+    const totpOnly = mergeSameAccountGroup([
+      { id: "a", type: 1, creationDate: "2019-01-01", login: { username: "u", password: "p", totp: "otpauth://A", uris: [] } },
+      { id: "b", type: 1, creationDate: "2020-01-01", login: { username: "u", password: "p", totp: "otpauth://SECRET", uris: [] } }
+    ]);
+    expect(totpOnly.notes).toContain("otpauth://SECRET");
+    expect(notesSummary(totpOnly.notes)).toBe("(merged passwords hidden, open to show)");
+
+    const h = (pw, day) => ({ lastUsedDate: `2020-01-0${day}T00:00:00.000Z`, password: pw });
+    const historyOnly = mergeSameAccountGroup([
+      { id: "a", type: 1, creationDate: "2019-01-01", passwordHistory: [h("h1", 1), h("h2", 2), h("h3", 3)], login: { username: "u", password: "p", uris: [] } },
+      { id: "b", type: 1, creationDate: "2020-01-01", passwordHistory: [h("h4", 4), h("h5", 5), h("h6", 6)], login: { username: "u", password: "p", uris: [] } }
+    ]);
+    expect(historyOnly.notes).toContain("h1");
+    expect(notesSummary(historyOnly.notes)).toBe("(merged passwords hidden, open to show)");
+  });
+
+  it("keeps the secret out of the row's summary line but in the opened note", () => {
+    const merged = mergeSameAccountGroup([
+      { id: "a", type: 1, creationDate: "2019-01-01", notes: "own note", login: { username: "u", password: "old", uris: [] } },
+      { id: "b", type: 1, creationDate: "2020-01-01", login: { username: "u", password: "secret-new", uris: [] } }
+    ]);
+    const html = renderItemRow(emptyState(), merged, 0);
+    const summary = html.match(/<summary>([\s\S]*?)<\/summary>/)[1];
+    const opened = html.match(/<pre>([\s\S]*?)<\/pre>/)[1];
+    expect(summary).not.toContain("secret-new");
+    expect(opened).toContain("secret-new");
+  });
+});
+
 describe("notesSummary", () => {
   it("shows short notes as they are and cuts long ones", () => {
     expect(notesSummary("pin in the safe")).toBe("pin in the safe");
