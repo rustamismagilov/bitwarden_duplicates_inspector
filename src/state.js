@@ -1,5 +1,5 @@
 import { computeDuplicateGroups } from "./core/dedup.js";
-import { mergeConcerns } from "./core/merge.js";
+import { mergeConcerns, mergeSelection } from "./core/merge.js";
 
 const subscribers = new Set();
 
@@ -162,7 +162,7 @@ export function groupAction(s, groupIndex, kind) {
       return { mark: false, targets: markedSelected, clearSelection: true, disabled: false, label: labels.unmarkSelected };
     }
     // a merge needs two entries, and the ones already queued for merge in this group count too
-    const alreadyMerging = g.indices.filter(i => s.itemsToMerge.has(i) && !s.itemsToDelete.has(i));
+    const alreadyMerging = mergeSelection(s.items, g, s.itemsToMerge, s.itemsToDelete).toMerge;
     const disabled = kind === "merge" && selected.length + alreadyMerging.length < 2;
     return { mark: true, targets: selected, clearSelection: true, disabled, label: labels.markSelected };
   }

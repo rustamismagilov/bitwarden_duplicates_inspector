@@ -50,7 +50,7 @@ function entryTime(it) {
 }
 
 // index of the entry a merge keeps: the oldest one, first wins on a tie
-export function keptEntryIndex(groupItems) {
+function keptEntryIndex(groupItems) {
   let best = 0;
   groupItems.forEach((it, i) => {
     if (entryTime(it) < entryTime(groupItems[best])) best = i;
@@ -197,17 +197,23 @@ export function mergeConcerns(groupItems) {
   return concerns;
 }
 
+// the entries of a group a queued merge takes in, and the index of the one it keeps
+// an entry also marked for deletion never takes part, and one entry alone is no merge
+export function mergeSelection(items, group, itemsToMerge, itemsToDelete) {
+  const toMerge = group.indices.filter(i => itemsToMerge.has(i) && !itemsToDelete.has(i));
+  const keptIndex = toMerge.length > 1 ? toMerge[keptEntryIndex(toMerge.map(i => items[i]))] : -1;
+  return { toMerge, keptIndex };
+}
+
 // what the queued marks do to one group
 // replaced maps the kept entry's index to the merged item, dropped holds every index that disappears
 function planGroup(items, group, itemsToMerge, itemsToDelete) {
   const replaced = new Map();
   const dropped = new Set(group.indices.filter(i => itemsToDelete.has(i)));
-  const toMerge = group.indices.filter(i => itemsToMerge.has(i) && !itemsToDelete.has(i));
+  const { toMerge, keptIndex } = mergeSelection(items, group, itemsToMerge, itemsToDelete);
 
-  if (toMerge.length > 1) {
-    const mergeItems = toMerge.map(i => items[i]);
-    const keptIndex = toMerge[keptEntryIndex(mergeItems)];
-    replaced.set(keptIndex, mergeSameAccountGroup(mergeItems));
+  if (keptIndex !== -1) {
+    replaced.set(keptIndex, mergeSameAccountGroup(toMerge.map(i => items[i])));
     toMerge.forEach(i => { if (i !== keptIndex) dropped.add(i); });
   }
 

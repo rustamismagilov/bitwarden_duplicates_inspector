@@ -1,5 +1,5 @@
 import { renderItemRow, escapeHtml } from "./components.js";
-import { resolveGroupEntries, keptEntryIndex } from "../core/merge.js";
+import { resolveGroupEntries, mergeSelection } from "../core/merge.js";
 import { groupAction, isGroupVisible, selectAllAction, mergeAllAction, deleteSelectedAction } from "../state.js";
 
 function buildPreviewSectionHtml(state, groupIndex) {
@@ -55,10 +55,8 @@ function renderSummary(state, refs) {
 
   let mergeReduction = 0;
   state.duplicateGroups.forEach(g => {
-    const merging = g.indices.filter(i => state.itemsToMerge.has(i) && !state.itemsToDelete.has(i));
-    if (merging.length > 1) {
-      mergeReduction += (merging.length - 1);
-    }
+    const { toMerge, keptIndex } = mergeSelection(state.items, g, state.itemsToMerge, state.itemsToDelete);
+    if (keptIndex !== -1) mergeReduction += toMerge.length - 1;
   });
 
   const finalExportCount = totalItems - state.itemsToDelete.size - mergeReduction;
@@ -97,11 +95,10 @@ function renderGroupMarkup(state, groupIndex) {
   const selectedInGroup = g.indices.filter(i => state.selectedItems.has(i));
   const selectedCount = selectedInGroup.length;
   const allSelected = selectedCount === count && count > 0;
-  const mergingIndices = g.indices.filter(i => state.itemsToMerge.has(i) && !state.itemsToDelete.has(i));
-  const mergedInGroup = mergingIndices.length;
+  // mergeBase is the entry a merge keeps, so the table can point it out
+  const { toMerge, keptIndex: mergeBase } = mergeSelection(state.items, g, state.itemsToMerge, state.itemsToDelete);
+  const mergedInGroup = toMerge.length;
   const deletedInGroup = g.indices.filter(i => state.itemsToDelete.has(i)).length;
-  // the entry a merge keeps, so the table can point it out
-  const mergeBase = mergedInGroup > 1 ? mergingIndices[keptEntryIndex(mergingIndices.map(i => state.items[i]))] : -1;
 
   htmlParts.push(`<div class="group" data-group-index="${groupIndex}">`);
   htmlParts.push(`<div class="group-header">`);

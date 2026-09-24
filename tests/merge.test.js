@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeSameAccountGroup, buildExport, resolveGroupEntries, mergeConcerns } from "../src/core/merge.js";
+import { mergeSameAccountGroup, buildExport, resolveGroupEntries, mergeConcerns, mergeSelection } from "../src/core/merge.js";
 import { computeDuplicateGroups } from "../src/core/dedup.js";
 
 import simpleDupe from "./fixtures/simple-dupe.json" with { type: "json" };
@@ -379,6 +379,21 @@ describe("mergeConcerns", () => {
       login("a", "2019-01-01", { organizationId: "o", collectionIds: ["c1", "c2"] }),
       login("b", "2020-01-01", { organizationId: "o", collectionIds: ["c2", "c1"] })
     ])).toEqual([]);
+  });
+});
+
+describe("mergeSelection", () => {
+  const at = (id, date) => ({ id, type: 1, creationDate: date, login: { username: "u", uris: [] } });
+  const items = [at("a", "2021-01-01"), at("b", "2019-01-01"), at("c", "2020-01-01")];
+  const group = { indices: [0, 1, 2] };
+
+  it("takes in merge-marked entries that are not deleted and keeps the oldest", () => {
+    expect(mergeSelection(items, group, new Set([0, 1, 2]), new Set())).toEqual({ toMerge: [0, 1, 2], keptIndex: 1 });
+    expect(mergeSelection(items, group, new Set([0, 1, 2]), new Set([1]))).toEqual({ toMerge: [0, 2], keptIndex: 2 });
+  });
+
+  it("keeps nothing when fewer than two entries take part", () => {
+    expect(mergeSelection(items, group, new Set([0]), new Set())).toEqual({ toMerge: [0], keptIndex: -1 });
   });
 });
 
