@@ -19,6 +19,9 @@ import { renderUI, applyFilter } from "./ui/render.js";
 import { attachDelegatedListener } from "./ui/events.js";
 import { initTheme } from "./ui/theme.js";
 
+const intro = document.getElementById("intro");
+const nextSteps = document.getElementById("nextSteps");
+const savedFileName = document.getElementById("savedFileName");
 const fileInput = document.getElementById("fileInput");
 const fileLabelText = document.getElementById("fileLabelText");
 const filterInput = document.getElementById("filterInput");
@@ -52,6 +55,17 @@ initTheme(themeToggleBtn);
 function setStatus(msg, isError = false) {
   statusEl.textContent = msg || "";
   statusEl.className = isError ? "error" : "";
+}
+
+// the name of the loaded file, so downloads can be named after it
+let loadedFileName = "";
+
+// a new name for every download, so a second one never lands as "(1)" next to the first
+function downloadFileName(now = new Date()) {
+  const base = loadedFileName.replace(/\.json$/i, "").replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "") || "bitwarden";
+  const pad = n => String(n).padStart(2, "0");
+  const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  return `${base}_merged_${stamp}.json`;
 }
 
 function downloadJson(data, filename) {
@@ -119,8 +133,11 @@ function handleDownload() {
       itemsToDelete: s.itemsToDelete,
     });
     if (!confirmDownload(s, outputData)) return;
-    downloadJson(outputData, "bitwarden_merged.json");
+    const filename = downloadFileName();
+    downloadJson(outputData, filename);
     markDownloaded();
+    savedFileName.textContent = filename;
+    nextSteps.hidden = false;
   } catch (err) {
     alert(`Could not build export: ${err.message}`);
   }
@@ -128,8 +145,11 @@ function handleDownload() {
 
 function resetToEmpty(errorMessage) {
   clearVault();
+  loadedFileName = "";
   fileLabelText.textContent = "Choose file";
   searchWrapper.style.display = "none";
+  intro.hidden = false;
+  nextSteps.hidden = true;
   setStatus(errorMessage, true);
 }
 
@@ -169,9 +189,12 @@ function handleFileChange(e) {
       resetToEmpty("Error: that file could not be shown. " + err.message);
       return;
     }
-    fileLabelText.textContent = file.name;
-    setStatus("");
+    loadedFileName = file.name;
+    fileLabelText.textContent = "Choose another file";
+    setStatus(`Loaded ${file.name}.`);
     searchWrapper.style.display = "block";
+    intro.hidden = true;
+    nextSteps.hidden = true;
   };
   reader.onerror = () => setStatus("Error: that file could not be read.", true);
   reader.readAsText(file);

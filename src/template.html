@@ -21,6 +21,11 @@
   <div id="top-area">
     <h1>Bitwarden Duplicates Inspector <span class="version">v__VERSION__</span></h1>
 
+    <p id="intro" class="notice">
+      Load a Bitwarden export saved as <strong>.json (plaintext)</strong>.
+      The file is only read inside this page and is never uploaded anywhere.
+    </p>
+
     <div id="controls">
       <div class="controls-top">
         <div class="controls-row-left">
@@ -62,6 +67,13 @@
 
     <div id="status" role="status"></div>
     <div id="summary" aria-live="polite"></div>
+    <div id="nextSteps" class="notice" hidden>
+      <strong>Saved <span id="savedFileName"></span>.</strong>
+      It holds your whole vault, not only the merged entries, and Bitwarden's import only adds.
+      Before importing it, purge the vault or delete all of its entries, or every entry ends up there twice.
+      File attachments are not in the file, so save them first and upload them again after the import.
+      Keep your original export until you have checked the imported vault, then delete both plaintext files.
+    </div>
     <div class="hint" id="hint" role="status"></div>
   </div>
 

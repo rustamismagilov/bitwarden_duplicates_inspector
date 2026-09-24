@@ -256,6 +256,18 @@ body.theme-dark #themeToggleBtn .icon-moon {
 
 #status.error { color: var(--danger); }
 
+.notice {
+  font-size: 0.85rem;
+  margin: 0.5rem 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  max-width: 70ch;
+}
+
+#intro { margin-inline: auto; text-align: center; }
+
 #summary {
   font-size: 0.9rem;
   margin: 0.8rem 0 0.4rem;

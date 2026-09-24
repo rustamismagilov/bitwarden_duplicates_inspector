@@ -84,7 +84,7 @@ function renderSummary(state, refs) {
     `<strong>${uniqueCount}</strong> ${uniqueCount === 1 ? "entry has" : "entries have"} no duplicates.`;
 
   const rightHtml = `<div class="summary-right">` +
-    `Final Export: <strong>${finalExportCount}</strong> ${finalExportCount === 1 ? "entry" : "entries"}<br>` +
+    `The download will have <strong>${plural(finalExportCount, "entry", "entries")}</strong><br>` +
     `<small class="text-muted">(${state.itemsToDelete.size} deleted, ${mergeReduction} merged)</small>` +
     `</div>`;
 
