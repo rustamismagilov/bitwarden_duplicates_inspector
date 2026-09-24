@@ -8,8 +8,8 @@ import {
   toggleSelectAll,
   toggleMergeAll,
   toggleDeleteSelected,
-  hasQueuedChanges,
-  marksSnapshot,
+  markDownloaded,
+  hasUnsavedChanges,
 } from "./state.js";
 import { buildExport } from "./core/merge.js";
 import { parseVaultExport } from "./core/vault.js";
@@ -93,23 +93,14 @@ function handleDownload() {
     });
     if (!confirmOversizedFields(outputData.items)) return;
     downloadJson(outputData, "bitwarden_merged.json");
-    downloadedMarks = marksSnapshot(s);
+    markDownloaded();
   } catch (err) {
     alert(`Could not build export: ${err.message}`);
   }
 }
 
-// the marks as they were at the last download, null before the first one
-let downloadedMarks = null;
-
-function hasUnsavedChanges() {
-  const s = getState();
-  return hasQueuedChanges(s) && marksSnapshot(s) !== downloadedMarks;
-}
-
 function resetToEmpty(errorMessage) {
   clearVault();
-  downloadedMarks = null;
   fileLabelText.textContent = "Choose file";
   searchWrapper.style.display = "none";
   setStatus(errorMessage, true);
@@ -138,14 +129,13 @@ function handleFileChange(e) {
     }
 
     // only ask once the new file is known to be usable
-    if (hasUnsavedChanges() &&
+    if (hasUnsavedChanges(getState()) &&
         !confirm("Load another file? The merges and deletions queued for the current file have not been downloaded and will be lost.")) {
       return;
     }
 
     try {
       filterInput.value = "";
-      downloadedMarks = null;
       setVault(data);
     } catch (err) {
       // the vault is already swapped in at this point, so start clean rather than show half of it
@@ -161,7 +151,7 @@ function handleFileChange(e) {
 }
 
 window.addEventListener("beforeunload", e => {
-  if (!hasUnsavedChanges()) return;
+  if (!hasUnsavedChanges(getState())) return;
   e.preventDefault();
   e.returnValue = "";
 });

@@ -16,6 +16,8 @@ import {
   toggleDeleteSelected,
   hasQueuedChanges,
   marksSnapshot,
+  markDownloaded,
+  hasUnsavedChanges,
   setFilterText,
   isGroupVisible,
 } from "../src/state.js";
@@ -97,6 +99,31 @@ describe("queued changes", () => {
     expect(marksSnapshot(getState())).not.toBe(first);
     applyGroupAction(1, "delete");
     expect(marksSnapshot(getState())).toBe(first);
+  });
+});
+
+describe("unsaved changes", () => {
+  it("counts queued marks until they are downloaded", () => {
+    expect(hasUnsavedChanges(getState())).toBe(false);
+    applyGroupAction(0, "merge");
+    expect(hasUnsavedChanges(getState())).toBe(true);
+    markDownloaded();
+    expect(hasUnsavedChanges(getState())).toBe(false);
+  });
+
+  it("counts again once the marks change after a download", () => {
+    applyGroupAction(0, "merge");
+    markDownloaded();
+    applyGroupAction(1, "delete");
+    expect(hasUnsavedChanges(getState())).toBe(true);
+  });
+
+  it("forgets the last download when another vault is loaded", () => {
+    applyGroupAction(0, "merge");
+    markDownloaded();
+    loadVault();
+    applyGroupAction(0, "merge");
+    expect(hasUnsavedChanges(getState())).toBe(true);
   });
 });
 

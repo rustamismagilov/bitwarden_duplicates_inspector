@@ -16,6 +16,8 @@ const state = {
   groupConcerns: [],
   filterText: "",
   showPreviews: false,
+  // the marks as they were at the last download, null before the first one
+  downloadedMarks: null,
 };
 
 function notify() {
@@ -35,6 +37,7 @@ function resetMarks() {
   state.itemsToMerge = new Set();
   state.itemsToDelete = new Set();
   state.selectedItems = new Set();
+  state.downloadedMarks = null;
 }
 
 // site, username, and every entry's name and uris
@@ -93,6 +96,16 @@ export function hasQueuedChanges(s) {
 export function marksSnapshot(s) {
   const sortedList = set => [...set].sort((a, b) => a - b);
   return JSON.stringify([sortedList(s.itemsToMerge), sortedList(s.itemsToDelete)]);
+}
+
+// no notify here, nothing on the page shows it
+export function markDownloaded() {
+  state.downloadedMarks = marksSnapshot(state);
+}
+
+// queued work that would be lost by closing the page or loading another file
+export function hasUnsavedChanges(s) {
+  return hasQueuedChanges(s) && marksSnapshot(s) !== s.downloadedMarks;
 }
 
 function allIn(set, indices) {
