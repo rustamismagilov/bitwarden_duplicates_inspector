@@ -11,16 +11,19 @@ Since [Bitwarden has no built-in deduplication](https://community.bitwarden.com/
 
 1. Download [the latest release](https://github.com/rustamismagilov/bitwarden_duplicates_inspector/releases/latest/download/index.html).
 2. Open it in your browser. No install, no network needed.
-3. [Export your Bitwarden vault](https://bitwarden.com/help/export-your-data/) as **.json (plaintext)**. Encrypted and password-protected exports are rejected.
-4. Click **Choose file** and select your exported .json file.
-5. Review the duplicate groups, mark what to merge or delete, and click **Download updated export**.
-6. [Import the merged file back into Bitwarden](https://bitwarden.com/help/import-data/).
-7. When everything checks out, delete both plaintext files: your original export and `bitwarden_merged.json`.
+3. [Export your Bitwarden vault](https://bitwarden.com/help/export-your-data/) as **.json (plaintext)**. Encrypted and password-protected exports are rejected. If your vault has file attachments, export it as **.zip (with attachments)** instead and use the .json file inside the zip. The zip keeps a copy of every attachment.
+4. Click **Choose file** and select your exported .json file, or drop it on the page.
+5. Review the duplicate groups, mark what to merge or delete, and click **Download updated export**. The file is named after your export, for example `bitwarden_export_20260924142233_merged_2026-09-24_142501.json`.
+6. [Purge the vault](https://bitwarden.com/help/product-faqs/#q-what-happens-when-i-purge-my-vault) or delete all of its entries. See the warning below for why.
+7. [Import the downloaded file into Bitwarden](https://bitwarden.com/help/import-data/) as **Bitwarden (json)**. Upload attachments again by hand if you had any.
+8. When everything checks out, delete every plaintext file: your original export and all the `_merged_` files you downloaded.
 
 > [!WARNING]
-> The downloaded file contains your **whole vault**, not only the entries you merged, and Bitwarden's import only adds. If you import it on top of the existing vault, every entry ends up there twice. Before importing, either [purge the vault](https://bitwarden.com/help/product-faqs/#q-what-happens-when-i-purge-my-vault) or delete all of its entries.
+> The downloaded file contains your **whole vault**, not only the entries you merged, and Bitwarden's import only adds. If you import it on top of the existing vault, every entry ends up there twice. That is why step 6 empties the vault first.
 >
-> Either way, the removed entries take their **file attachments** with them, and a .json export does not contain attachments, so the import cannot bring them back. Purging also empties the trash for good. If some entries have attachments, save those files first and upload them again after the import.
+> Emptying the vault removes the **file attachments** of every entry, and a .json file does not contain attachments, so the import cannot bring them back. Purging also empties the trash for good. Keep the .zip export or save the attachments before step 6.
+>
+> A personal vault on bitwarden.com imports at most 7,000 entries and 2,000 folders in one go. If your personal export is bigger, the page warns you before the download. Split it before you purge the vault. Self-hosted servers have no such limit, and organization imports have much higher ones, so the page does not check those.
 >
 > Keep your original export until you have checked the imported vault.
 
@@ -33,11 +36,12 @@ Two login entries are grouped as duplicates when they share both:
 - the **site**, and
 - the **username** (case-insensitive). Entries without a username are never grouped.
 
-The site comes from the first entry URL that has a host. Web addresses are preferred over app links like `androidapp://`. If an entry has no usable URL, the site falls back to the domain of an email username, and then to a domain written in the entry name.
+The site comes from the first entry URL that has a host. Web addresses are preferred over app links like `androidapp://`. If an entry has no usable URL, the site falls back to the domain of an email username, and then to a domain written in the entry name. A handle like `@john.doe` has nothing before the `@`, so it does not count as an email address.
 
 A few things worth knowing:
 
 - `https://example.com`, `example.com`, `http://example.com/login` and `https://example.com/?ref=1` all count as `example.com`.
+- A host written in unicode and the same host in punycode count as one site, so `münchen.de` and `xn--mnchen-3ya.de` group together.
 - Ports only matter for IP addresses. `https://192.168.1.10:8080` and `https://192.168.1.10:9090` are different sites, `https://example.com:8443` is still `example.com`.
 - `www.example.com` does NOT match `example.com`, since the two sometimes have separate accounts. See [known issues](#known-issues).
 - Groups found through the email domain or the entry name are tagged **matched by email domain** or **matched by entry name**. These are guesses. Two unrelated accounts that both use `me@gmail.com` and have no URL end up in one `gmail.com` group, so check them before merging.
@@ -64,14 +68,21 @@ When two or more entries of a group are marked for merge, they become one entry:
 
 Nothing else in the export changes. Entries you did not touch are written exactly as they were, in their original order, and the folder list stays as it is.
 
-Before the download, the tool checks whether a merged entry has grown past what Bitwarden accepts, for example notes over its length limit. Bitwarden rejects the whole import in that case, so you get a warning listing those entries first.
+Notes, extra passwords and other extras are listed oldest entry first. When the table shows a note in one line, it stops before the passwords and TOTP secrets a merge wrote. Open the note to see them.
+
+Before the download, the page asks for confirmation in three cases:
+
+- Every copy of an account is marked for deletion, so the account would be gone from the file.
+- A merged entry has grown past what Bitwarden accepts, for example notes over its length limit. Bitwarden rejects the whole import in that case.
+- A personal export is bigger than bitwarden.com imports in one go.
 
 ### Group tags
 
-Some groups carry a tag that asks you to look before merging. **Merge all untagged groups** leaves these groups out, so you merge them one by one:
+Some groups carry a tag that asks you to look before merging. **Merge all untagged groups** leaves these groups out, so you merge them one by one. Type `check` in the filter to see all of them.
 
 - **matched by email domain** or **matched by entry name**: see [Detection](#detection).
 - **different passkeys**: the entries hold different passkeys, and a merge keeps only one entry's.
+- **different match rules**: the entries use different Bitwarden match rules, such as a port with the host rule, or a path with starts with, exact or regular expression. People set those to tell separate accounts on one server apart.
 - **different collections**: the entries sit in different collections of an organization, and everyone in any of those collections will see everything merged in.
 
 ### Group controls
@@ -87,13 +98,15 @@ The merge and delete buttons act on the whole group when nothing is ticked, and 
 | Mark to merge entire group | Merge selected entries | marks the entries for merge. A merge needs at least two entries, counting the ones already marked in that group |
 | Mark group for deletion | Mark selected for deletion | marks the entries for deletion |
 
-Once entries are marked, the labels change to **Unmark group merge**, **Unmark selected from merge**, **Unmark group for deletion** or **Unmark selected for deletion**. Marking an entry for merge clears its deletion mark, and the other way round.
+Once entries are marked, the labels change to **Unmark group merge**, **Unmark selected from merge**, **Unmark group for deletion** or **Unmark selected for deletion**.
+
+Merging the whole group leaves entries you marked for deletion deleted, and the button then reads **Merge the entries not deleted**. To pull a deleted entry into a merge, tick it and click **Merge selected entries**. Marking ticked entries one way always clears the other mark.
 
 ### Top controls
 
-- **Filter** narrows the list by site, username, entry name or URL.
+- **Filter** narrows the list by site, username, entry name, URL or tag.
 - **Select all entries in all groups** ticks every entry in the groups you can see.
-- **Merge all untagged groups** marks every visible group for merge, except the ones with a [tag](#group-tags).
+- **Merge all untagged groups** marks every visible group for merge, except the ones with a [tag](#group-tags) and the entries you marked for deletion. It then says how many tagged groups it left for you.
 - **Mark selected for deletion** marks the ticked entries in the visible groups.
 - **Enable result previews** shows what each group turns into once the queued merges and deletions are applied. The preview uses the same code as the download.
 - The sun and moon button switches between light and dark. Until you use it, the page follows your system theme.
@@ -105,6 +118,34 @@ If you try to load another file or close the tab while there are merges or delet
 - `www.example.com` and `example.com` count as different sites, so a pair with one entry on each does not show up as a group. Change one of the URLs in Bitwarden before exporting, or merge those by hand in Bitwarden.
 - Re-importing loses file attachments of the entries you remove, see the warning in [Quick start](#quick-start).
 
+## Checking a download
+
+The release workflow builds `index.html` from the tagged commit, and the build is reproducible. To check that a download matches the source, build the same tag yourself and compare the SHA-256 with the digest GitHub shows next to `index.html` on the release page:
+
+**Windows (PowerShell)**
+
+```powershell
+git clone https://github.com/rustamismagilov/bitwarden_duplicates_inspector.git
+cd bitwarden_duplicates_inspector
+git checkout $(git describe --tags --abbrev=0)
+npm ci
+npm run build
+(Get-FileHash dist/index.html).Hash.ToLower()
+```
+
+**macOS and Linux**
+
+```sh
+git clone https://github.com/rustamismagilov/bitwarden_duplicates_inspector.git
+cd bitwarden_duplicates_inspector
+git checkout $(git describe --tags --abbrev=0)
+npm ci
+npm run build
+shasum -a 256 dist/index.html
+```
+
+The "Source code" zip of a release builds the same file too.
+
 ## Building from source
 
 You need Node.js 22.12 or newer.
@@ -112,7 +153,7 @@ You need Node.js 22.12 or newer.
 ```sh
 git clone https://github.com/rustamismagilov/bitwarden_duplicates_inspector.git
 cd bitwarden_duplicates_inspector
-npm install
+npm ci
 npm test
 npm run build
 ```
