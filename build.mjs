@@ -56,5 +56,5 @@ if (isRunDirectly()) {
   const html = await buildPage();
   mkdirSync("dist", { recursive: true });
   writeFileSync("dist/index.html", html);
-  console.log(`Wrote dist/index.html (${html.length.toLocaleString()} bytes)`);
+  console.log(`Wrote dist/index.html (${Buffer.byteLength(html).toLocaleString()} bytes)`);
 }
