@@ -52,6 +52,14 @@ describe("parseHostPort", () => {
     expect(parseHostPort("https://localhost")).toBeNull();
     expect(parseHostPort("https://localhost:3000")).toBeNull();
   });
+  it("turns unicode hosts into punycode and drops a trailing dot", () => {
+    expect(parseHostPort("https://münchen.de/login")).toEqual({ host: "xn--mnchen-3ya.de", port: null });
+    expect(parseHostPort("https://xn--mnchen-3ya.de")).toEqual({ host: "xn--mnchen-3ya.de", port: null });
+    expect(parseHostPort("https://example.com./x")).toEqual({ host: "example.com", port: null });
+  });
+  it("leaves ip addresses exactly as written", () => {
+    expect(parseHostPort("https://192.168.1.010")).toEqual({ host: "192.168.1.010", port: null });
+  });
   it("parses IPv4 hosts", () => {
     expect(parseHostPort("https://192.168.1.1")).toEqual({ host: "192.168.1.1", port: null });
   });
@@ -80,7 +88,7 @@ describe("siteKeyInfo", () => {
       { uri: "androidapp://com.github.android" },
       { uri: "https://github.com/login" }
     ] } };
-    expect(siteKeyInfo(item)).toEqual({ key: "github.com", source: "uri" });
+    expect(siteKeyInfo(item)).toMatchObject({ key: "github.com", source: "uri" });
   });
 
   it("uses an app link when the entry has no web address", () => {
@@ -100,12 +108,20 @@ describe("siteKeyInfo", () => {
 
   it("reports where the key came from", () => {
     expect(siteKeyInfo({ type: 1, name: "x", login: { username: "me@example.com", uris: [] } }))
-      .toEqual({ key: "example.com", source: "email" });
+      .toMatchObject({ key: "example.com", source: "email" });
     expect(siteKeyInfo({ type: 1, name: "Login at acme.io", login: { username: "bob", uris: [] } }))
-      .toEqual({ key: "acme.io", source: "name" });
+      .toMatchObject({ key: "acme.io", source: "name" });
+    // a handle is no email address, so the name decides
+    expect(siteKeyInfo({ type: 1, name: "Instagram.com", login: { username: "@john.doe", uris: [] } }))
+      .toMatchObject({ key: "instagram.com", source: "name" });
+    // unicode in the name or the email domain becomes punycode like the urls
+    expect(siteKeyInfo({ type: 1, name: "Bücher.de login", login: { username: "bob", uris: [] } }))
+      .toMatchObject({ key: "xn--bcher-kva.de", source: "name" });
+    expect(siteKeyInfo({ type: 1, name: "x", login: { username: "me@Bücher.de", uris: [] } }))
+      .toMatchObject({ key: "xn--bcher-kva.de", source: "email" });
     // the email domain comes before a domain in the name
     expect(siteKeyInfo({ type: 1, name: "Netflix.com", login: { username: "me@gmail.com", uris: [] } }))
-      .toEqual({ key: "gmail.com", source: "email" });
+      .toMatchObject({ key: "gmail.com", source: "email" });
   });
 
   it("extracts host from first valid URI", () => {
@@ -170,6 +186,23 @@ describe("computeDuplicateGroups", () => {
       ["acme.io", "name"],
       ["mail.example", "email"]
     ]);
+  });
+
+  it("groups the unicode and punycode spellings of one host and labels the group in unicode", () => {
+    const at = (id, uri) => ({ id, type: 1, name: id, login: { username: "u", uris: [{ uri }] } });
+    const groups = computeDuplicateGroups([at("a", "https://xn--mnchen-3ya.de/login"), at("b", "https://münchen.de")]);
+    expect(groups.map(g => [g.site, g.siteLabel, g.indices])).toEqual([["xn--mnchen-3ya.de", "münchen.de", [0, 1]]]);
+  });
+
+  it("finds a unicode domain with combining marks or a punycode tld in an entry name", () => {
+    const thai = "ตัวอย่าง.ไทย";
+    const fromUri = siteKeyInfo({ type: 1, name: "x", login: { username: "u", uris: [{ uri: `https://${thai}` }] } });
+    const fromName = siteKeyInfo({ type: 1, name: `login ${thai}`, login: { username: "u", uris: [] } });
+    expect(fromName.key).toBe(fromUri.key);
+    expect(fromName.label).toBe(thai);
+    const nfd = "münchen.de";
+    expect(siteKeyInfo({ type: 1, name: nfd, login: { username: "u", uris: [] } }).key).toBe("xn--mnchen-3ya.de");
+    expect(siteKeyInfo({ type: 1, name: "shop.xn--p1ai", login: { username: "u", uris: [] } }).key).toBe("shop.xn--p1ai");
   });
 
   it("marks a group as matched by email when any entry only had its email domain", () => {

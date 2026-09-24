@@ -30,6 +30,9 @@ describe("built page", () => {
   });
 
   it("does not load anything from outside the file", () => {
-    expect(html).not.toMatch(/<script[^>]+src=|<link[^>]+href=|@import|url\(\s*['"]?https?:/i);
+    expect(html).not.toMatch(/<script[^>]+src=|<link[^>]+href=/i);
+    // remote css would come in through @import or url(), which only matter inside the style block
+    const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+    expect(css).not.toMatch(/@import|url\(\s*['"]?https?:/i);
   });
 });
