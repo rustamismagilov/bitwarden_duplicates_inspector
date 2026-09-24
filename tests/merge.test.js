@@ -113,6 +113,16 @@ describe("mergeSameAccountGroup", () => {
     expect(merged.notes).toBe("Additional passwords seen in merged entries:\nnew-pw");
   });
 
+  it("lists extra passwords and notes oldest first, whatever the file order", () => {
+    const merged = mergeSameAccountGroup([
+      { id: "new", type: 1, creationDate: "2022-01-01", notes: "newest note", login: { username: "u", password: "new-pw", uris: [] } },
+      { id: "old", type: 1, creationDate: "2019-01-01", notes: "oldest note", login: { username: "u", password: "old-pw", uris: [] } },
+      { id: "mid", type: 1, creationDate: "2020-01-01", notes: "middle note", login: { username: "u", password: "mid-pw", uris: [] } }
+    ]);
+    expect(merged.id).toBe("old");
+    expect(merged.notes).toBe("oldest note\n\n---\nmiddle note\n\n---\nnewest note\n\n---\nAdditional passwords seen in merged entries:\nmid-pw\nnew-pw");
+  });
+
   it("lists each extra password on its own line", () => {
     const merged = mergeSameAccountGroup([
       { id: "a", type: 1, creationDate: "2019-01-01", login: { username: "u", password: "base", uris: [] } },

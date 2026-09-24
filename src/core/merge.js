@@ -61,14 +61,16 @@ export function keptEntryIndex(groupItems) {
 export function mergeSameAccountGroup(groupItems) {
   if (!groupItems.length) throw new Error("mergeSameAccountGroup called with empty list");
 
-  const baseSrc = groupItems[keptEntryIndex(groupItems)];
+  // everything below walks the entries oldest first, so notes and extras come out in age order
+  // the sort is stable, so the first entry is the same one keptEntryIndex picks
   const oldestFirst = [...groupItems].sort((a, b) => entryTime(a) - entryTime(b));
+  const baseSrc = oldestFirst[0];
 
-  const base = JSON.parse(JSON.stringify(baseSrc));
+  const base = structuredClone(baseSrc);
   const allPasswords = new Set();
   const notesChunks = [];
 
-  for (const it of groupItems) {
+  for (const it of oldestFirst) {
     const login = it.login || {};
     const pw = login.password || "";
     if (pw) allPasswords.add(pw);
@@ -83,7 +85,7 @@ export function mergeSameAccountGroup(groupItems) {
   // copy the uri objects as they are
   // rebuilding them from a string key turned match numbers into strings
   const urisSeen = new Set(baseLogin.uris.filter(Boolean).map(uriKey));
-  for (const it of groupItems) {
+  for (const it of oldestFirst) {
     const uris = Array.isArray(it.login?.uris) ? it.login.uris : [];
     for (const u of uris) {
       if (!u) continue;
@@ -93,10 +95,6 @@ export function mergeSameAccountGroup(groupItems) {
       baseLogin.uris.push(structuredClone(u));
     }
   }
-
-  // keep everything the other entries carry that the kept entry lacks
-  // these used to be dropped silently along with the other entries
-  const others = oldestFirst.filter(it => it !== baseSrc);
 
   // the dropped passkeys are only named in notes, without their keys
   const { owner: passkeyOwner, kept: keptPasskeys, dropped: droppedPasskeys } = splitPasskeys(oldestFirst);
@@ -120,7 +118,7 @@ export function mergeSameAccountGroup(groupItems) {
   if (history.length) base.passwordHistory = structuredClone(history.slice(0, PASSWORD_HISTORY_LIMIT));
   const olderHistory = history.slice(PASSWORD_HISTORY_LIMIT).map(h => h.password);
 
-  if (others.some(it => it.reprompt === 1)) base.reprompt = 1;
+  if (groupItems.some(it => it.reprompt === 1)) base.reprompt = 1;
 
   // an archived old duplicate merged with one still in use should come back in use
   if (base.archivedDate && groupItems.some(it => !it.archivedDate)) base.archivedDate = null;
