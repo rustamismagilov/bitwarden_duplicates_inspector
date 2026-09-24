@@ -34,7 +34,8 @@ const deleteSelectedBtn = document.getElementById("deleteSelectedBtn");
 const downloadBtn = document.getElementById("downloadBtn");
 const previewToggle = document.getElementById("previewToggle");
 const statusEl = document.getElementById("status");
-const summaryEl = document.getElementById("summary");
+const summaryTotalsEl = document.getElementById("summaryTotals");
+const summaryDownloadEl = document.getElementById("summaryDownload");
 const hintEl = document.getElementById("hint");
 const groupsEl = document.getElementById("groups");
 
@@ -45,7 +46,8 @@ const refs = {
   mergeAllGroupsBtn,
   deleteSelectedBtn,
   downloadBtn,
-  summaryEl,
+  summaryTotalsEl,
+  summaryDownloadEl,
   hintEl,
   groupsEl,
 };

@@ -65,7 +65,7 @@ describe("renderItemRow", () => {
     const html = renderItemRow(emptyState(), hostile, 0);
     expect(html).not.toMatch(/<script|<img|<svg|<b>|<i>/);
     expect(html).toContain("&lt;img src=x onerror=alert(2)&gt;");
-    expect(html).toContain('aria-label="Select &lt;img src=x onerror=alert(2)&gt;"');
+    expect(html).toContain('aria-label="Select &lt;img src=x onerror=alert(2)&gt;, created &lt;b&gt;date&lt;/b&gt;"');
   });
 
   it("skips empty slots in the URI list instead of crashing", () => {

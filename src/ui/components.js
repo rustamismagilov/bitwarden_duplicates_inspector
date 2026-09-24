@@ -80,7 +80,7 @@ export function renderItemRow(state, it, idx, { preview = false, previewStatus =
 
     const checkedAttr = isSelected ? "checked" : "";
     checkHtml = `<td class="col-select">
-      <input type="checkbox" class="item-select" data-action="toggle-select" data-index="${idx}" aria-label="Select ${escapeHtml(name || "(no name)")}" ${checkedAttr} />
+      <input type="checkbox" class="item-select" data-action="toggle-select" data-index="${idx}" aria-label="Select ${escapeHtml(name || "(no name)")}, created ${escapeHtml(formatDate(created))}" ${checkedAttr} />
     </td>`;
   } else {
     checkHtml = `<td class="col-select preview-status">${escapeHtml(previewStatus)}</td>`;

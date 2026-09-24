@@ -323,6 +323,8 @@ body.theme-dark #themeToggleBtn .icon-moon {
 
 .group-header-site {
   font-weight: 600;
+  font-size: inherit;
+  margin: 0;
 }
 
 .group-header-meta {

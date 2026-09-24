@@ -74,21 +74,23 @@ function renderSummary(state, refs) {
   const finalExportCount = totalItems - state.itemsToDelete.size - mergeReduction;
 
   if (!totalItems) {
-    writeHtml(refs.summaryEl, "");
+    writeHtml(refs.summaryTotalsEl, "");
+    writeHtml(refs.summaryDownloadEl, "");
     return;
   }
 
-  const leftHtml = `Loaded <strong>${plural(totalItems, "entry", "entries")}</strong>.<br>` +
+  // the totals only change with a new file, the download count changes with every mark
+  // only the download count is a live region, so a click does not re-read the totals
+  writeHtml(refs.summaryTotalsEl,
+    `Loaded <strong>${plural(totalItems, "entry", "entries")}</strong>.<br>` +
     `Found <strong>${plural(groupsCount, "duplicate group")}</strong> ` +
     `involving <strong>${plural(dupItemsCount, "entry", "entries")}</strong>.<br>` +
-    `<strong>${uniqueCount}</strong> ${uniqueCount === 1 ? "entry has" : "entries have"} no duplicates.`;
-
-  const rightHtml = `<div class="summary-right">` +
+    `<strong>${uniqueCount}</strong> ${uniqueCount === 1 ? "entry has" : "entries have"} no duplicates.`
+  );
+  writeHtml(refs.summaryDownloadEl,
     `The download will have <strong>${plural(finalExportCount, "entry", "entries")}</strong><br>` +
-    `<small class="text-muted">(${state.itemsToDelete.size} deleted, ${mergeReduction} merged)</small>` +
-    `</div>`;
-
-  writeHtml(refs.summaryEl, `<div>${leftHtml}</div>${rightHtml}`);
+    `<small class="text-muted">(${state.itemsToDelete.size} deleted, ${mergeReduction} merged)</small>`
+  );
 }
 
 function renderGlobalButton(btn, action) {
@@ -131,18 +133,20 @@ function groupTagsHtml(state, groupIndex, { count, selectedCount, mergedInGroup,
   return tags.join("");
 }
 
+// every group has the same three buttons, so each also names its group for screen readers
 function groupButtonsHtml(state, groupIndex, allSelected) {
   const mergeAction = groupAction(state, groupIndex, "merge");
   const deleteAction = groupAction(state, groupIndex, "delete");
   const mergeDisabled = mergeAction.disabled ? `disabled title="${escapeHtml(mergeAction.hint)}"` : "";
+  const describedBy = `aria-describedby="group-${groupIndex}-site group-${groupIndex}-user"`;
   return `<div class="group-actions">
-    <button type="button" class="btn btn-secondary btn-select-group" data-action="select-group" data-group-index="${groupIndex}">
+    <button type="button" class="btn btn-secondary btn-select-group" data-action="select-group" data-group-index="${groupIndex}" ${describedBy}>
       ${allSelected ? "Unselect all in group" : "Select all in group"}
     </button>
-    <button type="button" class="btn btn-merge-group" data-action="merge-group" data-group-index="${groupIndex}" ${mergeDisabled}>
+    <button type="button" class="btn btn-merge-group" data-action="merge-group" data-group-index="${groupIndex}" ${describedBy} ${mergeDisabled}>
       ${escapeHtml(mergeAction.label)}
     </button>
-    <button type="button" class="btn btn-danger btn-delete-group" data-action="delete-group" data-group-index="${groupIndex}">
+    <button type="button" class="btn btn-danger btn-delete-group" data-action="delete-group" data-group-index="${groupIndex}" ${describedBy}>
       ${escapeHtml(deleteAction.label)}
     </button>
   </div>`;
@@ -163,12 +167,12 @@ function renderGroupMarkup(state, groupIndex) {
     return renderItemRow(state, state.items[idx], idx, { lastLeft, mergeBase: idx === mergeBase });
   }).join("");
 
-  return `<div class="group" data-group-index="${groupIndex}">
+  return `<section class="group" data-group-index="${groupIndex}" aria-labelledby="group-${groupIndex}-site">
     <div class="group-header">
       <div class="group-header-main">
-        <div class="group-header-site">${escapeHtml(g.site)}</div>
+        <h2 class="group-header-site" id="group-${groupIndex}-site">${escapeHtml(g.site)}</h2>
         <div class="group-header-meta">
-          <div class="meta-line"><span class="username">${escapeHtml(g.usernameRaw)}</span></div>
+          <div class="meta-line"><span class="username" id="group-${groupIndex}-user">${escapeHtml(g.usernameRaw)}</span></div>
           <div class="meta-line"><span class="count">${plural(count, "entry", "entries")}</span>${tagsHtml}</div>
         </div>
       </div>
@@ -176,7 +180,7 @@ function renderGroupMarkup(state, groupIndex) {
     </div>
     ${tableHtml("Select", rowsHtml)}
     ${shouldShowPreview(state, g) ? buildPreviewSectionHtml(state, groupIndex) : ""}
-  </div>`;
+  </section>`;
 }
 
 // the global buttons depend on the filter, so they refresh with it
