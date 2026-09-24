@@ -207,15 +207,35 @@ describe("group merge and delete buttons", () => {
     expect(sorted(getState().itemsToDelete)).toEqual([0, 2]);
   });
 
-  it("clears a deletion when the entry is marked for merge, and the other way round", () => {
+  it("clears a deletion when a ticked entry is merged, and the other way round", () => {
     applyGroupAction(0, "delete");
+    toggleSelected(0);
+    toggleSelected(1);
     applyGroupAction(0, "merge");
-    expect(getState().itemsToDelete.size).toBe(0);
-    expect(sorted(getState().itemsToMerge)).toEqual([0, 1, 2]);
-    toggleSelected(2);
-    applyGroupAction(0, "delete");
     expect(sorted(getState().itemsToMerge)).toEqual([0, 1]);
     expect(sorted(getState().itemsToDelete)).toEqual([2]);
+    toggleSelected(1);
+    applyGroupAction(0, "delete");
+    expect(sorted(getState().itemsToMerge)).toEqual([0]);
+    expect(sorted(getState().itemsToDelete)).toEqual([1, 2]);
+  });
+
+  it("leaves deletions alone when the whole group is merged", () => {
+    toggleSelected(0);
+    applyGroupAction(0, "delete");
+    const action = groupAction(getState(), 0, "merge");
+    expect(action).toMatchObject({ label: "Merge the entries not deleted", disabled: false, targets: [1, 2] });
+    applyGroupAction(0, "merge");
+    expect(sorted(getState().itemsToMerge)).toEqual([1, 2]);
+    expect(sorted(getState().itemsToDelete)).toEqual([0]);
+  });
+
+  it("disables the whole-group merge when fewer than two entries are left", () => {
+    toggleSelected(3);
+    applyGroupAction(1, "delete");
+    expect(groupAction(getState(), 1, "merge")).toMatchObject({ disabled: true, hint: "Fewer than two entries are left that are not marked for deletion" });
+    applyGroupAction(1, "merge");
+    expect(getState().itemsToMerge.size).toBe(0);
   });
 
   it("does nothing for a group that does not exist", () => {
@@ -264,11 +284,12 @@ describe("global buttons", () => {
     expect(getState().selectedItems.size).toBe(0);
   });
 
-  it("merges every group and clears deletions, then unmarks", () => {
+  it("merges every group but leaves deletions alone, then unmarks", () => {
+    toggleSelected(3);
     applyGroupAction(1, "delete");
     toggleMergeAll();
-    expect(sorted(getState().itemsToMerge)).toEqual([0, 1, 2, 3, 4]);
-    expect(getState().itemsToDelete.size).toBe(0);
+    expect(sorted(getState().itemsToMerge)).toEqual([0, 1, 2, 4]);
+    expect(sorted(getState().itemsToDelete)).toEqual([3]);
     expect(mergeAllAction(getState()).label).toBe("Unmark all untagged groups");
     toggleMergeAll();
     expect(getState().itemsToMerge.size).toBe(0);

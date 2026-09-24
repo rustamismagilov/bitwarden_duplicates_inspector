@@ -151,6 +151,7 @@ const GROUP_LABELS = {
     markSelected: "Merge selected entries",
     unmarkGroup: "Unmark group merge",
     markGroup: "Mark to merge entire group",
+    markRest: "Merge the entries not deleted",
   },
   delete: {
     unmarkSelected: "Unmark selected for deletion",
@@ -177,13 +178,29 @@ export function groupAction(s, groupIndex, kind) {
     // a merge needs two entries, and the ones already queued for merge in this group count too
     const alreadyMerging = mergeSelection(s.items, g, s.itemsToMerge, s.itemsToDelete).toMerge;
     const disabled = kind === "merge" && selected.length + alreadyMerging.length < 2;
-    return { mark: true, targets: selected, clearSelection: true, disabled, label: labels.markSelected };
+    const hint = disabled ? "Select at least two entries to merge" : "";
+    return { mark: true, targets: selected, clearSelection: true, disabled, hint, label: labels.markSelected };
   }
 
   if (g.indices.some(i => marked.has(i))) {
-    return { mark: false, targets: g.indices, clearSelection: false, disabled: false, label: labels.unmarkGroup };
+    return { mark: false, targets: g.indices, clearSelection: false, disabled: false, hint: "", label: labels.unmarkGroup };
   }
-  return { mark: true, targets: g.indices, clearSelection: false, disabled: false, label: labels.markGroup };
+
+  // merging the whole group leaves entries queued for deletion deleted
+  // only ticking an entry and merging it on purpose takes it back
+  if (kind === "merge") {
+    const rest = g.indices.filter(i => !s.itemsToDelete.has(i));
+    const disabled = rest.length < 2;
+    return {
+      mark: true,
+      targets: rest,
+      clearSelection: false,
+      disabled,
+      hint: disabled ? "Fewer than two entries are left that are not marked for deletion" : "",
+      label: rest.length < g.indices.length ? labels.markRest : labels.markGroup,
+    };
+  }
+  return { mark: true, targets: g.indices, clearSelection: false, disabled: false, hint: "", label: labels.markGroup };
 }
 
 export function applyGroupAction(groupIndex, kind) {
@@ -225,9 +242,12 @@ export function toggleSelectAll() {
 // groups matched only by an email domain or an entry name are guesses
 // and groups with merge concerns need a look first
 // merge all leaves both alone, the user has to merge those one by one
+// it also leaves entries queued for deletion deleted
 export function mergeAllAction(s) {
   const targets = s.duplicateGroups.flatMap((g, gi) =>
-    isGroupVisible(s, gi) && g.matchedBy === "uri" && !s.groupConcerns[gi].length ? g.indices : []
+    isGroupVisible(s, gi) && g.matchedBy === "uri" && !s.groupConcerns[gi].length
+      ? g.indices.filter(i => !s.itemsToDelete.has(i))
+      : []
   );
   const all = allIn(s.itemsToMerge, targets);
   return {

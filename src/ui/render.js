@@ -136,7 +136,7 @@ function groupTagsHtml(state, groupIndex, { count, selectedCount, mergedInGroup,
 function groupButtonsHtml(state, groupIndex, allSelected) {
   const mergeAction = groupAction(state, groupIndex, "merge");
   const deleteAction = groupAction(state, groupIndex, "delete");
-  const mergeDisabled = mergeAction.disabled ? `disabled title="Select at least two entries to merge"` : "";
+  const mergeDisabled = mergeAction.disabled ? `disabled title="${escapeHtml(mergeAction.hint)}"` : "";
   return `<div class="group-actions">
     <button type="button" class="btn btn-secondary btn-select-group" data-action="select-group" data-group-index="${groupIndex}">
       ${allSelected ? "Unselect all in group" : "Select all in group"}
