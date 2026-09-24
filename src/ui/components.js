@@ -1,4 +1,4 @@
-import { asText } from "../core/merge.js";
+import { asText, SECRET_NOTE_SECTIONS } from "../core/merge.js";
 
 function escapeHtml(str) {
   return String(str ?? "")
@@ -16,7 +16,17 @@ function formatDate(str) {
   return d.toLocaleString();
 }
 
-export { escapeHtml, formatDate };
+// the collapsed notes line is readable without a click, so it stops before the passwords
+// and totp secrets a merge writes into notes, the open note still shows everything
+function notesSummary(notes) {
+  const cut = Math.min(...SECRET_NOTE_SECTIONS.map(h => notes.indexOf(h)).filter(i => i !== -1));
+  if (!Number.isFinite(cut)) return notes.length > 120 ? notes.slice(0, 120) + "…" : notes;
+  const before = notes.slice(0, cut).replace(/[\s-]+$/, "");
+  const shown = before.length > 120 ? before.slice(0, 120) + "…" : before;
+  return (shown ? shown + " " : "") + "(merged passwords hidden, open to show)";
+}
+
+export { escapeHtml, formatDate, notesSummary };
 
 // preview: a row of the result preview, which has no checkbox
 // previewStatus: what a preview row says about its entry, like "merged from 3"
@@ -44,9 +54,8 @@ export function renderItemRow(state, it, idx, { preview = false, previewStatus =
   if (!notes) {
     notesHtml = `<span class="note-empty">-</span>`;
   } else {
-    const short = notes.length > 120 ? notes.slice(0, 120) + "…" : notes;
     notesHtml =
-      `<details data-key="${escapeHtml(key)}"><summary>${escapeHtml(short)}</summary>` +
+      `<details data-key="${escapeHtml(key)}"><summary>${escapeHtml(notesSummary(notes))}</summary>` +
       `<pre>${escapeHtml(notes)}</pre></details>`;
   }
 

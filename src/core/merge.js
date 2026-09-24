@@ -8,6 +8,15 @@ function uriKey(u) {
 // bitwarden trims password history to this many entries
 const PASSWORD_HISTORY_LIMIT = 5;
 
+// headings of the notes sections a merge writes, the first three hold secrets
+export const NOTE_SECTIONS = {
+  passwords: "Additional passwords seen in merged entries:",
+  history: "Older password history from merged entries:",
+  totp: "Additional TOTP secrets seen in merged entries:",
+  passkeys: "Passkeys dropped by the merge, register them again if you still need them:",
+};
+export const SECRET_NOTE_SECTIONS = [NOTE_SECTIONS.passwords, NOTE_SECTIONS.history, NOTE_SECTIONS.totp];
+
 function uniqueBy(list, keyFn) {
   const seen = new Set();
   return list.filter(x => {
@@ -160,25 +169,22 @@ export function mergeSameAccountGroup(groupItems) {
   // one password per line, since a password can contain commas and spaces
   const extraPw = Array.from(allPasswords).filter(p => p !== baseLogin.password);
   if (extraPw.length) {
-    mergedNotes.push("Additional passwords seen in merged entries:\n" + extraPw.join("\n"));
+    mergedNotes.push(NOTE_SECTIONS.passwords + "\n" + extraPw.join("\n"));
   }
 
   if (olderHistory.length) {
-    mergedNotes.push("Older password history from merged entries:\n" + olderHistory.join("\n"));
+    mergedNotes.push(NOTE_SECTIONS.history + "\n" + olderHistory.join("\n"));
   }
 
   // a login holds one totp secret, so any others go to notes like passwords do
   if (extraTotp.length) {
-    mergedNotes.push("Additional TOTP secrets seen in merged entries:\n" + extraTotp.join("\n"));
+    mergedNotes.push(NOTE_SECTIONS.totp + "\n" + extraTotp.join("\n"));
   }
 
   if (droppedPasskeys.length) {
     const describe = c =>
       [c.rpId, c.userName, c.creationDate && `created ${String(c.creationDate).slice(0, 10)}`].filter(Boolean).join(", ") || "passkey";
-    mergedNotes.push(
-      "Passkeys dropped by the merge, register them again if you still need them:\n" +
-      droppedPasskeys.map(describe).join("\n")
-    );
+    mergedNotes.push(NOTE_SECTIONS.passkeys + "\n" + droppedPasskeys.map(describe).join("\n"));
   }
 
   const joined = mergedNotes.join("\n\n---\n");

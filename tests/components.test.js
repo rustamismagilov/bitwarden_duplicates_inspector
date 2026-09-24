@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { escapeHtml, formatDate, renderItemRow } from "../src/ui/components.js";
+import { escapeHtml, formatDate, renderItemRow, notesSummary } from "../src/ui/components.js";
+import { mergeSameAccountGroup } from "../src/core/merge.js";
 
 const emptyState = () => ({ itemsToMerge: new Set(), itemsToDelete: new Set(), selectedItems: new Set() });
 
@@ -23,6 +24,30 @@ describe("formatDate", () => {
 
   it("returns text that is not a date as it is", () => {
     expect(formatDate("YYYY-MM-00T00:00:00.000Z")).toBe("YYYY-MM-00T00:00:00.000Z");
+  });
+});
+
+describe("notesSummary", () => {
+  it("shows short notes as they are and cuts long ones", () => {
+    expect(notesSummary("pin in the safe")).toBe("pin in the safe");
+    expect(notesSummary("x".repeat(130))).toBe("x".repeat(120) + "…");
+  });
+
+  it("stops before the passwords and totp secrets a merge wrote", () => {
+    const merged = mergeSameAccountGroup([
+      { id: "a", type: 1, creationDate: "2019-01-01", notes: "recovery in the safe", login: { username: "u", password: "old", totp: "otpauth://A", uris: [] } },
+      { id: "b", type: 1, creationDate: "2020-01-01", login: { username: "u", password: "secret-new", totp: "otpauth://B", uris: [] } }
+    ]);
+    expect(merged.notes).toContain("secret-new");
+    expect(notesSummary(merged.notes)).toBe("recovery in the safe (merged passwords hidden, open to show)");
+  });
+
+  it("says so when the notes start with merged secrets", () => {
+    const merged = mergeSameAccountGroup([
+      { id: "a", type: 1, creationDate: "2019-01-01", login: { username: "u", password: "old", uris: [] } },
+      { id: "b", type: 1, creationDate: "2020-01-01", login: { username: "u", password: "secret-new", uris: [] } }
+    ]);
+    expect(notesSummary(merged.notes)).toBe("(merged passwords hidden, open to show)");
   });
 });
 
