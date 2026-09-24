@@ -19,10 +19,11 @@ function formatDate(str) {
 export { escapeHtml, formatDate };
 
 // preview: a row of the result preview, which has no checkbox
-// sole: the only entry of its group left after deletions
+// previewStatus: what a preview row says about its entry, like "merged from 3"
+// lastLeft: the only entry of its group left after deletions
 // mergeBase: the entry a queued merge keeps
 // key: identifies the row's notes so they can stay open across re-renders
-export function renderItemRow(state, it, idx, { preview = false, sole = false, mergeBase = false, key = `item-${idx}` } = {}) {
+export function renderItemRow(state, it, idx, { preview = false, previewStatus = "", lastLeft = false, mergeBase = false, key = `item-${idx}` } = {}) {
   const login = it.login || {};
   const uris = (Array.isArray(login.uris) ? login.uris : []).filter(Boolean);
   const name = it.name || "";
@@ -66,14 +67,14 @@ export function renderItemRow(state, it, idx, { preview = false, sole = false, m
 
     if (isDeleted) rowClass = "row-deleted";
     else if (isMerged) rowClass = "row-merged";
-    else if (sole) rowClass = "row-kept";
+    else if (lastLeft) rowClass = "row-last-left";
 
     const checkedAttr = isSelected ? "checked" : "";
-    checkHtml = `<td class="col-select" style="text-align:center;">
+    checkHtml = `<td class="col-select">
       <input type="checkbox" class="item-select" data-action="toggle-select" data-index="${idx}" aria-label="Select ${escapeHtml(name || "(no name)")}" ${checkedAttr} />
     </td>`;
   } else {
-    checkHtml = `<td class="col-select" style="text-align:center; color: var(--muted); font-weight:600;">Final Result</td>`;
+    checkHtml = `<td class="col-select preview-status">${escapeHtml(previewStatus)}</td>`;
   }
 
   return `<tr class="${rowClass}">
@@ -85,7 +86,7 @@ export function renderItemRow(state, it, idx, { preview = false, sole = false, m
     </td>
     <td class="col-dates">
       <div><span class="badge">Created</span> ${escapeHtml(formatDate(created))}</div>
-      <div style="margin-top:2px;"><span class="badge">Updated</span> ${escapeHtml(formatDate(revised))}</div>
+      <div class="dates-updated"><span class="badge">Updated</span> ${escapeHtml(formatDate(revised))}</div>
     </td>
     <td class="col-uris">${urisHtml}</td>
     <td class="col-notes">${notesHtml}</td>

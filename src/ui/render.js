@@ -2,25 +2,37 @@ import { renderItemRow, escapeHtml } from "./components.js";
 import { resolveGroupEntries, mergeSelection } from "../core/merge.js";
 import { groupAction, isGroupVisible, selectAllAction, mergeAllAction, deleteSelectedAction } from "../state.js";
 
-function buildPreviewSectionHtml(state, groupIndex) {
-  const g = state.duplicateGroups[groupIndex];
-  const previewEntries = resolveGroupEntries(state.items, g, state.itemsToMerge, state.itemsToDelete);
-  // key open notes by the entry a row comes from, so they stay with it when rows shift
-  const rowsHtml = previewEntries.length
-    ? previewEntries.map(({ index, item }) => renderItemRow(state, item, index, { preview: true, key: `preview-${groupIndex}-${index}` })).join("")
-    : `<tr><td colspan="5" class="preview-empty">Every entry in this group will be deleted. Nothing from it ends up in the export.</td></tr>`;
-  return `<div class="preview-container">
-    <div class="preview-arrow">▼ Result Preview</div>
-    <table>
-     <thead><tr>
-      <th class="col-select">Status</th>
+// the group table and its preview share their columns
+const COLUMN_COUNT = 5;
+
+function tableHtml(firstHeader, rowsHtml) {
+  return `<table>
+    <thead><tr>
+      <th class="col-select">${firstHeader}</th>
       <th class="col-name">Name</th>
       <th class="col-dates">Created / Updated</th>
       <th class="col-uris">URIs</th>
       <th class="col-notes">Notes</th>
     </tr></thead>
     <tbody>${rowsHtml}</tbody>
-    </table>
+  </table>`;
+}
+
+function buildPreviewSectionHtml(state, groupIndex) {
+  const g = state.duplicateGroups[groupIndex];
+  const previewEntries = resolveGroupEntries(state.items, g, state.itemsToMerge, state.itemsToDelete);
+  const { toMerge, keptIndex } = mergeSelection(state.items, g, state.itemsToMerge, state.itemsToDelete);
+  // key open notes by the entry a row comes from, so they stay with it when rows shift
+  const rowsHtml = previewEntries.length
+    ? previewEntries.map(({ index, item }) => renderItemRow(state, item, index, {
+      preview: true,
+      previewStatus: index === keptIndex ? `merged from ${toMerge.length}` : "unchanged",
+      key: `preview-${groupIndex}-${index}`,
+    })).join("")
+    : `<tr><td colspan="${COLUMN_COUNT}" class="preview-empty">Every entry in this group will be deleted. Nothing from it ends up in the export.</td></tr>`;
+  return `<div class="preview-container">
+    <div class="preview-arrow">▼ Result Preview</div>
+    ${tableHtml("Result", rowsHtml)}
   </div>`;
 }
 
@@ -71,7 +83,7 @@ function renderSummary(state, refs) {
     `involving <strong>${plural(dupItemsCount, "entry", "entries")}</strong>.<br>` +
     `<strong>${uniqueCount}</strong> ${uniqueCount === 1 ? "entry has" : "entries have"} no duplicates.`;
 
-  const rightHtml = `<div style="text-align: right;">` +
+  const rightHtml = `<div class="summary-right">` +
     `Final Export: <strong>${finalExportCount}</strong> ${finalExportCount === 1 ? "entry" : "entries"}<br>` +
     `<small class="text-muted">(${state.itemsToDelete.size} deleted, ${mergeReduction} merged)</small>` +
     `</div>`;
@@ -84,126 +96,90 @@ function renderGlobalButton(btn, action) {
   btn.disabled = action.disabled;
 }
 
-function renderGroupMarkup(state, groupIndex) {
+// the tags under a group heading: why to check it, and what is queued
+function groupTagsHtml(state, groupIndex, { count, selectedCount, mergedInGroup, deletedInGroup }) {
   const g = state.duplicateGroups[groupIndex];
-  const htmlParts = [];
-
-  const site = g.site;
-  const usernameRaw = g.usernameRaw || g.usernameLower;
-  const count = g.indices.length;
-
-  const selectedInGroup = g.indices.filter(i => state.selectedItems.has(i));
-  const selectedCount = selectedInGroup.length;
-  const allSelected = selectedCount === count && count > 0;
-  // mergeBase is the entry a merge keeps, so the table can point it out
-  const { toMerge, keptIndex: mergeBase } = mergeSelection(state.items, g, state.itemsToMerge, state.itemsToDelete);
-  const mergedInGroup = toMerge.length;
-  const deletedInGroup = g.indices.filter(i => state.itemsToDelete.has(i)).length;
-
-  htmlParts.push(`<div class="group" data-group-index="${groupIndex}">`);
-  htmlParts.push(`<div class="group-header">`);
-  htmlParts.push(`<div class="group-header-main">`);
-  htmlParts.push(`<div class="group-header-site">${escapeHtml(site)}</div>`);
-  htmlParts.push(`<div class="group-header-meta">`);
-
-  htmlParts.push(`<div class="meta-line">
-    <span class="username">${escapeHtml(usernameRaw)}</span>
-  </div>`);
-
-  htmlParts.push(`<div class="meta-line">
-    <span class="count">${count} item${count === 1 ? "" : "s"}</span>`);
+  const tags = [];
 
   const concerns = state.groupConcerns[groupIndex];
   if (concerns.includes("passkeys")) {
-    htmlParts.push(`<span class="tag tag-weak" title="These entries hold different passkeys. A Bitwarden login only uses one, so a merge keeps the passkeys of the oldest entry that has any and lists the others in notes, without their keys.">different passkeys</span>`);
+    tags.push(`<span class="tag tag-weak" title="These entries hold different passkeys. A Bitwarden login only uses one, so a merge keeps the passkeys of the oldest entry that has any and lists the others in notes, without their keys.">different passkeys</span>`);
   }
   if (concerns.includes("collections")) {
-    htmlParts.push(`<span class="tag tag-weak" title="These entries are in different collections. A merge puts the result in all of them, so everyone with access to any of those collections sees everything that was merged in.">different collections</span>`);
+    tags.push(`<span class="tag tag-weak" title="These entries are in different collections. A merge puts the result in all of them, so everyone with access to any of those collections sees everything that was merged in.">different collections</span>`);
   }
 
   if (g.matchedBy !== "uri") {
     const how = g.matchedBy === "email" ? "email domain" : "entry name";
-    htmlParts.push(`<span class="tag tag-weak" title="Some entries have no URL for this site, so they were grouped by their ${how}. Check that they are the same account before merging.">matched by ${how}</span>`);
+    tags.push(`<span class="tag tag-weak" title="Some entries have no URL for this site, so they were grouped by their ${how}. Check that they are the same account before merging.">matched by ${how}</span>`);
   }
 
   if (selectedCount > 0) {
-    const selectedText = allSelected ? "all selected" : `${selectedCount} selected`;
-    htmlParts.push(`<span class="tag tag-selected">${escapeHtml(selectedText)}</span>`);
+    tags.push(`<span class="tag tag-selected">${selectedCount === count ? "all selected" : `${selectedCount} selected`}</span>`);
   }
 
   if (mergedInGroup > 1) {
-    htmlParts.push(`<span class="tag tag-merge">${mergedInGroup} will be merged into one</span>`);
+    tags.push(`<span class="tag tag-merge">${mergedInGroup} will be merged into one</span>`);
   } else if (mergedInGroup === 1) {
-    htmlParts.push(`<span class="tag tag-merge">1 marked for merge, mark another to merge</span>`);
+    tags.push(`<span class="tag tag-merge">1 marked for merge, mark another to merge</span>`);
   }
 
   if (deletedInGroup === count) {
-    htmlParts.push(`<span class="tag tag-deleted">all ${count} will be deleted, none kept</span>`);
+    tags.push(`<span class="tag tag-deleted">all ${count} will be deleted, none kept</span>`);
   } else if (deletedInGroup > 0) {
-    htmlParts.push(`<span class="tag tag-deleted">${deletedInGroup} will be deleted</span>`);
+    tags.push(`<span class="tag tag-deleted">${deletedInGroup} will be deleted</span>`);
   }
 
-  htmlParts.push(`</div>`);
-  htmlParts.push(`</div>`);
-  htmlParts.push(`</div>`);
-
-  const selectAllLabel = allSelected ? "Unselect all in group" : "Select all in group";
-  const mergeAction = groupAction(state, groupIndex, "merge");
-  const deleteAction = groupAction(state, groupIndex, "delete");
-  const mergeLabel = mergeAction.label;
-  const deleteLabel = deleteAction.label;
-  const disabledAttr = mergeAction.disabled ? `disabled title="Select at least two entries to merge"` : "";
-
-  htmlParts.push(`<div class="group-actions">
-    <button type="button"
-            class="btn btn-secondary btn-select-group"
-            data-action="select-group"
-            data-group-index="${groupIndex}">
-      ${escapeHtml(selectAllLabel)}
-    </button>
-    <button type="button"
-            class="btn btn-merge-group"
-            data-action="merge-group"
-            data-group-index="${groupIndex}" ${disabledAttr}>
-      ${escapeHtml(mergeLabel)}
-    </button>
-    <button type="button"
-            class="btn btn-danger btn-delete-group"
-            data-action="delete-group"
-            data-group-index="${groupIndex}">
-      ${escapeHtml(deleteLabel)}
-    </button>
-  </div>`);
-
-  htmlParts.push(`</div>`);
-
-  htmlParts.push(`<table>`);
-  htmlParts.push(`<thead><tr>
-    <th class="col-select">Select</th>
-    <th class="col-name">Name</th>
-    <th class="col-dates">Created / Updated</th>
-    <th class="col-uris">URIs</th>
-    <th class="col-notes">Notes</th>
-  </tr></thead><tbody>`);
-
-  g.indices.forEach(idx => {
-    const it = state.items[idx];
-    // the only entry left after deletions
-    const sole = !state.itemsToDelete.has(idx) && count - deletedInGroup === 1;
-    htmlParts.push(renderItemRow(state, it, idx, { sole, mergeBase: idx === mergeBase }));
-  });
-
-  htmlParts.push(`</tbody></table>`);
-
-  if (shouldShowPreview(state, g)) {
-    htmlParts.push(buildPreviewSectionHtml(state, groupIndex));
-  }
-
-  htmlParts.push(`</div>`);
-
-  return htmlParts.join("");
+  return tags.join("");
 }
 
+function groupButtonsHtml(state, groupIndex, allSelected) {
+  const mergeAction = groupAction(state, groupIndex, "merge");
+  const deleteAction = groupAction(state, groupIndex, "delete");
+  const mergeDisabled = mergeAction.disabled ? `disabled title="Select at least two entries to merge"` : "";
+  return `<div class="group-actions">
+    <button type="button" class="btn btn-secondary btn-select-group" data-action="select-group" data-group-index="${groupIndex}">
+      ${allSelected ? "Unselect all in group" : "Select all in group"}
+    </button>
+    <button type="button" class="btn btn-merge-group" data-action="merge-group" data-group-index="${groupIndex}" ${mergeDisabled}>
+      ${escapeHtml(mergeAction.label)}
+    </button>
+    <button type="button" class="btn btn-danger btn-delete-group" data-action="delete-group" data-group-index="${groupIndex}">
+      ${escapeHtml(deleteAction.label)}
+    </button>
+  </div>`;
+}
+
+function renderGroupMarkup(state, groupIndex) {
+  const g = state.duplicateGroups[groupIndex];
+  const count = g.indices.length;
+  const selectedCount = g.indices.filter(i => state.selectedItems.has(i)).length;
+  // mergeBase is the entry a merge keeps, so the table can point it out
+  const { toMerge, keptIndex: mergeBase } = mergeSelection(state.items, g, state.itemsToMerge, state.itemsToDelete);
+  const deletedInGroup = g.indices.filter(i => state.itemsToDelete.has(i)).length;
+  const tagsHtml = groupTagsHtml(state, groupIndex, { count, selectedCount, mergedInGroup: toMerge.length, deletedInGroup });
+
+  const rowsHtml = g.indices.map(idx => {
+    // the only entry of the group left after deletions
+    const lastLeft = !state.itemsToDelete.has(idx) && count - deletedInGroup === 1;
+    return renderItemRow(state, state.items[idx], idx, { lastLeft, mergeBase: idx === mergeBase });
+  }).join("");
+
+  return `<div class="group" data-group-index="${groupIndex}">
+    <div class="group-header">
+      <div class="group-header-main">
+        <div class="group-header-site">${escapeHtml(g.site)}</div>
+        <div class="group-header-meta">
+          <div class="meta-line"><span class="username">${escapeHtml(g.usernameRaw)}</span></div>
+          <div class="meta-line"><span class="count">${plural(count, "entry", "entries")}</span>${tagsHtml}</div>
+        </div>
+      </div>
+      ${groupButtonsHtml(state, groupIndex, selectedCount === count)}
+    </div>
+    ${tableHtml("Select", rowsHtml)}
+    ${shouldShowPreview(state, g) ? buildPreviewSectionHtml(state, groupIndex) : ""}
+  </div>`;
+}
 
 // the global buttons depend on the filter, so they refresh with it
 function renderControls(state, refs) {

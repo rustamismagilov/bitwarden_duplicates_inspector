@@ -19,7 +19,7 @@
   --checkbox-check: #ffffff;
   --row-merged-bg: rgba(37, 99, 235, 0.15);
   --row-deleted-bg: rgba(220, 38, 38, 0.15);
-  --row-kept-bg: rgba(16, 185, 129, 0.35);
+  --row-last-left-bg: rgba(16, 185, 129, 0.35);
   --warning: #b45309;
   --kept: #047857;
 }
@@ -45,7 +45,7 @@ body.theme-dark {
   --checkbox-check: #f9fafb;
   --row-merged-bg: rgba(59, 130, 246, 0.2);
   --row-deleted-bg: rgba(239, 68, 68, 0.2);
-  --row-kept-bg: rgba(16, 185, 129, 0.2);
+  --row-last-left-bg: rgba(16, 185, 129, 0.2);
   --warning: #fbbf24;
   --kept: #34d399;
 }
@@ -435,8 +435,8 @@ th {
   background-color: var(--row-deleted-bg) !important;
 }
 
-.row-kept {
-  background-color: var(--row-kept-bg) !important;
+.row-last-left {
+  background-color: var(--row-last-left-bg) !important;
 }
 
 .preview-container {
@@ -452,7 +452,22 @@ th {
   margin-bottom: 5px;
 }
 
-.col-select { width: 40px; text-align: center; }
+.col-select { width: 64px; text-align: center; }
+
+/* short column headers should never break inside a word */
+th { word-break: normal; }
+
+.preview-status {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.dates-updated { margin-top: 2px; }
+
+.summary-right { text-align: right; }
+
+.text-muted { color: var(--muted); }
 .col-name   { width: 20%; }
 .col-dates  { width: 20%; }
 .col-uris   { width: 27%; }
