@@ -181,5 +181,5 @@ attachDelegatedListener(groupsEl);
 
 subscribe((state) => renderUI(state, refs));
 
-// Initial paint (no vault loaded yet)
+// first paint, nothing is loaded yet
 renderUI(getState(), refs);

@@ -200,8 +200,9 @@ function visibleIndices(s) {
   return s.duplicateGroups.flatMap((g, gi) => (isGroupVisible(s, gi) ? g.indices : []));
 }
 
-function scopeText(s) {
-  return s.filterText ? "visible groups" : "all groups";
+// the global button labels say whether a filter narrows what they reach
+function scopeWord(s) {
+  return s.filterText ? "visible" : "all";
 }
 
 export function selectAllAction(s) {
@@ -210,7 +211,7 @@ export function selectAllAction(s) {
   return {
     targets,
     disabled: targets.length === 0,
-    label: `${all ? "Unselect" : "Select"} all entries in ${scopeText(s)}`,
+    label: `${all ? "Unselect" : "Select"} all entries in ${scopeWord(s)} groups`,
   };
 }
 
@@ -229,12 +230,11 @@ export function mergeAllAction(s) {
     isGroupVisible(s, gi) && g.matchedBy === "uri" && !s.groupConcerns[gi].length ? g.indices : []
   );
   const all = allIn(s.itemsToMerge, targets);
-  const scope = s.filterText ? "visible" : "all";
   return {
     targets,
     mark: !all,
     disabled: targets.length === 0,
-    label: `${all ? "Unmark" : "Merge"} ${scope} untagged groups`,
+    label: `${all ? "Unmark" : "Merge"} ${scopeWord(s)} untagged groups`,
   };
 }
 
@@ -253,7 +253,7 @@ export function deleteSelectedAction(s) {
     targets,
     mark: !all,
     disabled: targets.length === 0,
-    label: all ? "Unmark selected for deletion" : "Mark selected for deletion",
+    label: GROUP_LABELS.delete[all ? "unmarkSelected" : "markSelected"],
   };
 }
 
