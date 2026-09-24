@@ -63,7 +63,7 @@ export const TAGGED_FILTER = "check";
 
 // site, username, every entry's name and uris, and the tag labels
 function searchTextFor(items, group, tags) {
-  const parts = [group.site, group.usernameRaw, ...tags.map(t => t.label)];
+  const parts = [group.site, group.siteLabel, group.usernameRaw, ...tags.map(t => t.label)];
   for (const i of group.indices) {
     const it = items[i];
     parts.push(it.name);
@@ -140,7 +140,7 @@ export function hasUnsavedChanges(s) {
 export function fullyDeletedGroups(s) {
   return s.duplicateGroups
     .filter(g => g.indices.every(i => s.itemsToDelete.has(i)))
-    .map(g => ({ site: g.site, username: g.usernameRaw }));
+    .map(g => ({ site: g.siteLabel, username: g.usernameRaw }));
 }
 
 function allIn(set, indices) {

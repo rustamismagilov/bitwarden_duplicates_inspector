@@ -170,7 +170,7 @@ function renderGroupMarkup(state, groupIndex) {
   return `<section class="group" data-group-index="${groupIndex}" aria-labelledby="group-${groupIndex}-site">
     <div class="group-header">
       <div class="group-header-main">
-        <h2 class="group-header-site" id="group-${groupIndex}-site">${escapeHtml(g.site)}</h2>
+        <h2 class="group-header-site" id="group-${groupIndex}-site">${escapeHtml(g.siteLabel)}</h2>
         <div class="group-header-meta">
           <div class="meta-line"><span class="username" id="group-${groupIndex}-user">${escapeHtml(g.usernameRaw)}</span></div>
           <div class="meta-line"><span class="count">${plural(count, "entry", "entries")}</span>${tagsHtml}</div>
