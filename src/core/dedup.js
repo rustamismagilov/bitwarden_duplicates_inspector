@@ -75,10 +75,6 @@ export function siteKeyInfo(item) {
   return { key: isIp && port ? host + ":" + port : host, source };
 }
 
-export function canonicalWebsiteKey(item) {
-  const info = siteKeyInfo(item);
-  return info ? info.key : null;
-}
 
 export function computeDuplicateGroups(items) {
   const map = new Map();

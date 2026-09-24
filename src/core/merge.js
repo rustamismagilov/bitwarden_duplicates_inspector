@@ -201,7 +201,7 @@ export function mergeConcerns(groupItems) {
 
 // what the queued marks do to one group
 // replaced maps the kept entry's index to the merged item, dropped holds every index that disappears
-export function planGroup(items, group, itemsToMerge, itemsToDelete) {
+function planGroup(items, group, itemsToMerge, itemsToDelete) {
   const replaced = new Map();
   const dropped = new Set(group.indices.filter(i => itemsToDelete.has(i)));
   const toMerge = group.indices.filter(i => itemsToMerge.has(i) && !itemsToDelete.has(i));
@@ -217,6 +217,7 @@ export function planGroup(items, group, itemsToMerge, itemsToDelete) {
 }
 
 // the entries a group turns into, in their original order, each with the index it comes from
+// the preview uses this so it always matches the download
 export function resolveGroupEntries(items, group, itemsToMerge, itemsToDelete) {
   const { replaced, dropped } = planGroup(items, group, itemsToMerge, itemsToDelete);
   return group.indices
@@ -224,10 +225,6 @@ export function resolveGroupEntries(items, group, itemsToMerge, itemsToDelete) {
     .map(i => ({ index: i, item: replaced.get(i) ?? items[i] }));
 }
 
-// the preview uses these so it always matches the download
-export function resolveGroup(items, group, itemsToMerge, itemsToDelete) {
-  return resolveGroupEntries(items, group, itemsToMerge, itemsToDelete).map(entry => entry.item);
-}
 
 export function buildExport({ vaultData, items, duplicateGroups, itemsToMerge, itemsToDelete }) {
   if (!vaultData || !Array.isArray(items)) {

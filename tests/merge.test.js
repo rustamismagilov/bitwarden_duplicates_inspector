@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeSameAccountGroup, buildExport, resolveGroup, resolveGroupEntries, mergeConcerns } from "../src/core/merge.js";
+import { mergeSameAccountGroup, buildExport, resolveGroupEntries, mergeConcerns } from "../src/core/merge.js";
 import { computeDuplicateGroups } from "../src/core/dedup.js";
 
 import simpleDupe from "./fixtures/simple-dupe.json" with { type: "json" };
@@ -372,7 +372,9 @@ describe("mergeConcerns", () => {
   });
 });
 
-describe("resolveGroup", () => {
+describe("resolveGroupEntries", () => {
+  const resolveGroup = (...args) => resolveGroupEntries(...args).map(e => e.item);
+
   it("returns exactly the entries the export writes for that group", () => {
     const entry = (id, date, pw, notes) => ({ id, type: 1, name: "Amazon", creationDate: date, revisionDate: date, notes,
       login: { username: "me@x.com", password: pw, uris: [{ match: null, uri: "https://amazon.com" }] } });

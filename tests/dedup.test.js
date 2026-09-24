@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   isIPv4,
   parseHostPort,
-  canonicalWebsiteKey,
   siteKeyInfo,
   computeDuplicateGroups,
 } from "../src/core/dedup.js";
@@ -67,11 +66,13 @@ describe("parseHostPort", () => {
   });
 });
 
-describe("canonicalWebsiteKey", () => {
+describe("siteKeyInfo", () => {
+  const siteKey = item => siteKeyInfo(item)?.key ?? null;
+
   it("returns null for non-login types, even when they carry login data", () => {
     const loginData = { username: "u@github.com", uris: [{ uri: "https://github.com" }] };
-    expect(canonicalWebsiteKey({ type: 2, name: "notes for github.com", login: loginData })).toBeNull();
-    expect(canonicalWebsiteKey({ type: 3, name: "card for github.com", login: loginData })).toBeNull();
+    expect(siteKey({ type: 2, name: "notes for github.com", login: loginData })).toBeNull();
+    expect(siteKey({ type: 3, name: "card for github.com", login: loginData })).toBeNull();
   });
 
   it("prefers a web address over an app link", () => {
@@ -84,17 +85,17 @@ describe("canonicalWebsiteKey", () => {
 
   it("uses an app link when the entry has no web address", () => {
     const item = { type: 1, name: "x", login: { uris: [{ uri: "androidapp://com.github.android" }] } };
-    expect(canonicalWebsiteKey(item)).toBe("com.github.android");
+    expect(siteKey(item)).toBe("com.github.android");
   });
 
   it("keeps the port for IPv6 hosts like it does for IPv4", () => {
     const item = { type: 1, name: "x", login: { uris: [{ uri: "https://[fe80::1]:5001" }] } };
-    expect(canonicalWebsiteKey(item)).toBe("[fe80::1]:5001");
+    expect(siteKey(item)).toBe("[fe80::1]:5001");
   });
 
   it("ignores the port for domain names", () => {
     const item = { type: 1, name: "x", login: { uris: [{ uri: "https://example.com:8443" }] } };
-    expect(canonicalWebsiteKey(item)).toBe("example.com");
+    expect(siteKey(item)).toBe("example.com");
   });
 
   it("reports where the key came from", () => {
@@ -109,32 +110,32 @@ describe("canonicalWebsiteKey", () => {
 
   it("extracts host from first valid URI", () => {
     const item = { type: 1, name: "x", login: { uris: [{ uri: "https://google.com" }] } };
-    expect(canonicalWebsiteKey(item)).toBe("google.com");
+    expect(siteKey(item)).toBe("google.com");
   });
 
   it("keeps the www. prefix as part of the host", () => {
     const item = { type: 1, name: "x", login: { uris: [{ uri: "https://www.google.com" }] } };
-    expect(canonicalWebsiteKey(item)).toBe("www.google.com");
+    expect(siteKey(item)).toBe("www.google.com");
   });
 
   it("falls back to email domain when no URI", () => {
     const item = { type: 1, name: "x", login: { username: "me@example.com", uris: [] } };
-    expect(canonicalWebsiteKey(item)).toBe("example.com");
+    expect(siteKey(item)).toBe("example.com");
   });
 
   it("falls back to name-embedded domain when no URI and no email", () => {
     const item = { type: 1, name: "Login at acme.io", login: { username: "bob", uris: [] } };
-    expect(canonicalWebsiteKey(item)).toBe("acme.io");
+    expect(siteKey(item)).toBe("acme.io");
   });
 
   it("preserves IPv4 host with port", () => {
     const item = { type: 1, name: "x", login: { uris: [{ uri: "https://10.0.0.5:8080" }] } };
-    expect(canonicalWebsiteKey(item)).toBe("10.0.0.5:8080");
+    expect(siteKey(item)).toBe("10.0.0.5:8080");
   });
 
   it("returns null when no host is derivable", () => {
     const item = { type: 1, name: "Random", login: { username: "user", uris: [] } };
-    expect(canonicalWebsiteKey(item)).toBeNull();
+    expect(siteKey(item)).toBeNull();
   });
 });
 
