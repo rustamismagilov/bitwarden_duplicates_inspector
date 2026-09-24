@@ -18,6 +18,7 @@ import {
   marksSnapshot,
   markDownloaded,
   hasUnsavedChanges,
+  fullyDeletedGroups,
   setFilterText,
   isGroupVisible,
 } from "../src/state.js";
@@ -124,6 +125,18 @@ describe("unsaved changes", () => {
     loadVault();
     applyGroupAction(0, "merge");
     expect(hasUnsavedChanges(getState())).toBe(true);
+  });
+});
+
+describe("fully deleted groups", () => {
+  it("lists accounts where every copy is marked for deletion", () => {
+    expect(fullyDeletedGroups(getState())).toEqual([]);
+    toggleSelected(0);
+    applyGroupAction(0, "delete");
+    expect(fullyDeletedGroups(getState())).toEqual([]);
+    toggleSelectAll();
+    toggleDeleteSelected();
+    expect(fullyDeletedGroups(getState())).toEqual([{ site: "a.com", username: "u" }, { site: "b.com", username: "u" }]);
   });
 });
 

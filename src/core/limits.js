@@ -26,6 +26,21 @@ function tooLong(value, limit) {
   return typeof value === "string" && value !== "" && encryptedLength(value) > limit;
 }
 
+// bitwarden.com refuses a personal import with more entries or folders than this
+// self-hosted servers have no such limit, organization imports have their own
+export const CLOUD_IMPORT_LIMITS = { items: 7000, folders: 2000 };
+
+// what makes a personal export too big to import into bitwarden.com in one go
+export function importSizeProblems(exportData) {
+  if (Array.isArray(exportData.collections)) return [];
+  const problems = [];
+  const items = Array.isArray(exportData.items) ? exportData.items.length : 0;
+  const folders = Array.isArray(exportData.folders) ? exportData.folders.length : 0;
+  if (items > CLOUD_IMPORT_LIMITS.items) problems.push(`${items} entries, bitwarden.com imports at most ${CLOUD_IMPORT_LIMITS.items} at once`);
+  if (folders > CLOUD_IMPORT_LIMITS.folders) problems.push(`${folders} folders, bitwarden.com imports at most ${CLOUD_IMPORT_LIMITS.folders} at once`);
+  return problems;
+}
+
 // entries with a field bitwarden would reject, as { name, field } pairs
 export function findOversizedFields(items) {
   const problems = [];

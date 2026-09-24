@@ -10,10 +10,11 @@ import {
   toggleDeleteSelected,
   markDownloaded,
   hasUnsavedChanges,
+  fullyDeletedGroups,
 } from "./state.js";
 import { buildExport } from "./core/merge.js";
 import { parseVaultExport } from "./core/vault.js";
-import { findOversizedFields } from "./core/limits.js";
+import { findOversizedFields, importSizeProblems } from "./core/limits.js";
 import { renderUI, applyFilter } from "./ui/render.js";
 import { attachDelegatedListener } from "./ui/events.js";
 import { initTheme } from "./ui/theme.js";
@@ -67,17 +68,43 @@ function downloadJson(data, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// merged notes can grow past what bitwarden accepts, and then it rejects the whole file
-function confirmOversizedFields(items) {
-  const problems = findOversizedFields(items);
-  if (!problems.length) return true;
-  const shown = problems.slice(0, 10).map(p => `- ${p.name}: ${p.field}`);
-  if (problems.length > shown.length) shown.push(`- and ${problems.length - shown.length} more`);
-  return confirm(
-    "Bitwarden will reject this file, because these entries have a field that is too long once encrypted:\n\n" +
-    shown.join("\n") +
-    "\n\nUnmark those merges or shorten the notes first. Download anyway?"
-  );
+function listLines(lines, max = 10) {
+  const shown = lines.slice(0, max).map(line => `- ${line}`);
+  if (lines.length > max) shown.push(`- and ${lines.length - max} more`);
+  return shown.join("\n");
+}
+
+// everything worth a second look before the file is written, asked in one go
+function confirmDownload(s, outputData) {
+  const sections = [];
+
+  const gone = fullyDeletedGroups(s);
+  if (gone.length) {
+    sections.push(
+      "These accounts will have no entry left in the file, every copy is marked for deletion:\n" +
+      listLines(gone.map(g => `${g.site} / ${g.username}`))
+    );
+  }
+
+  // merged notes can grow past what bitwarden accepts, and then it rejects the whole file
+  const oversized = findOversizedFields(outputData.items);
+  if (oversized.length) {
+    sections.push(
+      "Bitwarden will reject this file, because these entries have a field that is too long once encrypted. Unmark those merges or shorten the notes first:\n" +
+      listLines(oversized.map(p => `${p.name}: ${p.field}`))
+    );
+  }
+
+  const tooBig = importSizeProblems(outputData);
+  if (tooBig.length) {
+    sections.push(
+      "This file is too big to import into bitwarden.com in one go. Split it into smaller files before you purge the vault. Self-hosted servers are not limited:\n" +
+      listLines(tooBig)
+    );
+  }
+
+  if (!sections.length) return true;
+  return confirm(sections.join("\n\n") + "\n\nDownload anyway?");
 }
 
 function handleDownload() {
@@ -91,7 +118,7 @@ function handleDownload() {
       itemsToMerge: s.itemsToMerge,
       itemsToDelete: s.itemsToDelete,
     });
-    if (!confirmOversizedFields(outputData.items)) return;
+    if (!confirmDownload(s, outputData)) return;
     downloadJson(outputData, "bitwarden_merged.json");
     markDownloaded();
   } catch (err) {

@@ -108,6 +108,13 @@ export function hasUnsavedChanges(s) {
   return hasQueuedChanges(s) && marksSnapshot(s) !== s.downloadedMarks;
 }
 
+// accounts that would have no entry left in the download, every copy marked for deletion
+export function fullyDeletedGroups(s) {
+  return s.duplicateGroups
+    .filter(g => g.indices.every(i => s.itemsToDelete.has(i)))
+    .map(g => ({ site: g.site, username: g.usernameRaw }));
+}
+
 function allIn(set, indices) {
   return indices.length > 0 && indices.every(i => set.has(i));
 }

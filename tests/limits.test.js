@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { encryptedLength, findOversizedFields } from "../src/core/limits.js";
+import { encryptedLength, findOversizedFields, importSizeProblems } from "../src/core/limits.js";
 import { mergeSameAccountGroup } from "../src/core/merge.js";
 
 describe("encryptedLength", () => {
@@ -17,6 +17,25 @@ describe("encryptedLength", () => {
   it("puts the notes limit at 7439 bytes of text", () => {
     expect(encryptedLength("a".repeat(7439))).toBeLessThanOrEqual(10000);
     expect(encryptedLength("a".repeat(7440))).toBeGreaterThan(10000);
+  });
+});
+
+describe("importSizeProblems", () => {
+  const many = n => Array.from({ length: n }, (_, i) => ({ id: String(i) }));
+
+  it("accepts a personal export within the bitwarden.com limits", () => {
+    expect(importSizeProblems({ items: many(7000), folders: many(2000) })).toEqual([]);
+  });
+
+  it("reports too many entries or folders", () => {
+    expect(importSizeProblems({ items: many(7001), folders: many(2001) })).toEqual([
+      "7001 entries, bitwarden.com imports at most 7000 at once",
+      "2001 folders, bitwarden.com imports at most 2000 at once"
+    ]);
+  });
+
+  it("leaves organization exports alone, their limits are set per server", () => {
+    expect(importSizeProblems({ items: many(9000), collections: [] })).toEqual([]);
   });
 });
 
