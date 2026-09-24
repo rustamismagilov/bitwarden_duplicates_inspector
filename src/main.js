@@ -21,6 +21,7 @@ import { initTheme } from "./ui/theme.js";
 
 const intro = document.getElementById("intro");
 const nextSteps = document.getElementById("nextSteps");
+const dismissNextSteps = document.getElementById("dismissNextSteps");
 const savedFileName = document.getElementById("savedFileName");
 const fileInput = document.getElementById("fileInput");
 const fileLabelText = document.getElementById("fileLabelText");
@@ -59,12 +60,10 @@ function setStatus(msg, isError = false) {
   statusEl.className = isError ? "error" : "";
 }
 
-// the name of the loaded file, so downloads can be named after it
-let loadedFileName = "";
 
 // a new name for every download, so a second one never lands as "(1)" next to the first
 function downloadFileName(now = new Date()) {
-  const base = loadedFileName.replace(/\.json$/i, "").replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "") || "bitwarden";
+  const base = getState().fileName.replace(/\.json$/i, "").replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "") || "bitwarden";
   const pad = n => String(n).padStart(2, "0");
   const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
   return `${base}_merged_${stamp}.json`;
@@ -147,7 +146,7 @@ function handleDownload() {
 
 function resetToEmpty(errorMessage) {
   clearVault();
-  loadedFileName = "";
+
   fileLabelText.textContent = "Choose file";
   searchWrapper.style.display = "none";
   intro.hidden = false;
@@ -178,13 +177,13 @@ function loadFile(file) {
 
     try {
       filterInput.value = "";
-      setVault(data);
+      setVault(data, file.name);
     } catch (err) {
       // the vault is already swapped in at this point, so start clean rather than show half of it
       resetToEmpty("Error: that file could not be shown. " + err.message);
       return;
     }
-    loadedFileName = file.name;
+
     fileLabelText.textContent = "Choose another file";
     setStatus(`Loaded ${file.name}.`);
     searchWrapper.style.display = "block";
@@ -240,6 +239,10 @@ clearSearchBtn.addEventListener("click", () => {
 
 previewToggle.addEventListener("change", () => {
   setShowPreviews(previewToggle.checked);
+});
+
+dismissNextSteps.addEventListener("click", () => {
+  nextSteps.hidden = true;
 });
 
 fileInput.addEventListener("change", handleFileChange);

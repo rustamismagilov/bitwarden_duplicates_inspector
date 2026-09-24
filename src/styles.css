@@ -269,6 +269,18 @@ body.theme-dark #themeToggleBtn .icon-moon {
   border-radius: 8px;
   background: var(--bg-card);
   max-width: 70ch;
+  position: relative;
+}
+
+.notice-dismiss {
+  float: right;
+  margin: -4px -6px 0 8px;
+  background: none;
+  border: none;
+  color: var(--muted-text);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
 }
 
 #intro { margin-inline: auto; text-align: center; }

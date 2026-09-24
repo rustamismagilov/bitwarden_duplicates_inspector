@@ -5,6 +5,8 @@ const subscribers = new Set();
 
 const state = {
   vaultData: null,
+  // the name of the loaded file, shown in the summary and used to name downloads
+  fileName: "",
   items: [],
   duplicateGroups: [],
   itemsToMerge: new Set(),
@@ -72,8 +74,9 @@ function searchTextFor(items, group, tags) {
   return parts.filter(Boolean).join("\n").toLowerCase();
 }
 
-export function setVault(vaultData) {
+export function setVault(vaultData, fileName = "") {
   state.vaultData = vaultData;
+  state.fileName = fileName;
   state.items = Array.isArray(vaultData?.items) ? vaultData.items : [];
   state.duplicateGroups = computeDuplicateGroups(state.items);
   state.groupConcerns = state.duplicateGroups.map(g => mergeConcerns(g.indices.map(i => state.items[i])));
@@ -87,6 +90,7 @@ export function setVault(vaultData) {
 
 export function clearVault() {
   state.vaultData = null;
+  state.fileName = "";
   state.items = [];
   state.duplicateGroups = [];
   state.groupSearchText = [];

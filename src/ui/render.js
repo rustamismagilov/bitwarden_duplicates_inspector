@@ -82,7 +82,8 @@ function renderSummary(state, refs) {
   // the totals only change with a new file, the download count changes with every mark
   // only the download count is a live region, so a click does not re-read the totals
   writeHtml(refs.summaryTotalsEl,
-    `Loaded <strong>${plural(totalItems, "entry", "entries")}</strong>.<br>` +
+    `Loaded <strong>${plural(totalItems, "entry", "entries")}</strong>` +
+    (state.fileName ? ` from <strong>${escapeHtml(state.fileName)}</strong>` : "") + `.<br>` +
     `Found <strong>${plural(groupsCount, "duplicate group")}</strong> ` +
     `involving <strong>${plural(dupItemsCount, "entry", "entries")}</strong>.<br>` +
     `<strong>${uniqueCount}</strong> ${uniqueCount === 1 ? "entry has" : "entries have"} no duplicates.`

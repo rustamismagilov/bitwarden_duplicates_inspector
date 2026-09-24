@@ -55,8 +55,15 @@ describe("loading a file", () => {
   it("shows the groups, names the file and swaps the intro for the controls", () => {
     expect(document.querySelectorAll("section.group")).toHaveLength(1);
     expect($("status").textContent).toBe("Loaded vault.json.");
+    expect($("summaryTotals").textContent).toContain("Loaded 2 entries from vault.json.");
     expect($("fileLabelText").textContent).toBe("Choose another file");
     expect($("intro").hidden).toBe(true);
+    expect($("searchWrapper").style.display).toBe("block");
+  });
+
+  it("keeps the file name in the summary after the status line changes", async () => {
+    await pickFile("not json", "bad.json", "Error: That file is not valid JSON.");
+    expect($("summaryTotals").textContent).toContain("from vault.json");
   });
 
   it("keeps the loaded vault and its marks when the next file is not valid", async () => {
@@ -98,6 +105,8 @@ describe("downloading", () => {
     expect(out.items.map(it => it.id)).toEqual(["a1"]);
     expect($("nextSteps").hidden).toBe(false);
     expect($("savedFileName").textContent).toBe(downloads[0].name);
+    $("dismissNextSteps").click();
+    expect($("nextSteps").hidden).toBe(true);
   });
 
   it("asks first when every copy of an account is deleted, and writes nothing on no", () => {
