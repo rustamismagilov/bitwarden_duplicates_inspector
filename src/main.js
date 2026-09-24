@@ -153,14 +153,7 @@ function resetToEmpty(errorMessage) {
   setStatus(errorMessage, true);
 }
 
-function handleFileChange(e) {
-  const input = e.target;
-  const file = input.files && input.files[0];
-  // clear the input so picking the same file again still fires change
-  input.value = "";
-  // a cancelled picker can fire change with no file, keep what is loaded
-  if (!file) return;
-
+function loadFile(file) {
   // an error from an earlier pick should not linger next to this one
   setStatus("");
 
@@ -199,6 +192,32 @@ function handleFileChange(e) {
   reader.onerror = () => setStatus("Error: that file could not be read.", true);
   reader.readAsText(file);
 }
+
+function handleFileChange(e) {
+  const input = e.target;
+  const file = input.files && input.files[0];
+  // clear the input so picking the same file again still fires change
+  input.value = "";
+  // a cancelled picker can fire change with no file, keep what is loaded
+  if (file) loadFile(file);
+}
+
+// dropping a file anywhere on the page loads it
+// without this the browser would open the plaintext vault in the tab instead
+// other drags, like text into the filter box, keep working as usual
+const isFileDrag = e => Array.from(e.dataTransfer?.types ?? []).includes("Files");
+
+window.addEventListener("dragover", e => {
+  if (!isFileDrag(e)) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "copy";
+});
+window.addEventListener("drop", e => {
+  if (!isFileDrag(e)) return;
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (file) loadFile(file);
+});
 
 window.addEventListener("beforeunload", e => {
   if (!hasUnsavedChanges(getState())) return;
