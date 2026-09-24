@@ -40,9 +40,30 @@ function resetMarks() {
   state.downloadedMarks = null;
 }
 
-// site, username, and every entry's name and uris
-function searchTextFor(items, group) {
-  const parts = [group.site, group.usernameRaw];
+// the tags that ask the user to look at a group before merging it, in the order the page shows them
+// merge all leaves every tagged group alone
+const TAG_LABELS = {
+  passkeys: "different passkeys",
+  "match rules": "different match rules",
+  collections: "different collections",
+  email: "matched by email domain",
+  name: "matched by entry name",
+};
+
+export function groupTags(group, concerns) {
+  const keys = [...concerns];
+  if (group.matchedBy !== "uri") keys.push(group.matchedBy);
+  return Object.keys(TAG_LABELS)
+    .filter(key => keys.includes(key))
+    .map(key => ({ key, label: TAG_LABELS[key] }));
+}
+
+// the filter word that shows every tagged group and nothing else
+export const TAGGED_FILTER = "check";
+
+// site, username, every entry's name and uris, and the tag labels
+function searchTextFor(items, group, tags) {
+  const parts = [group.site, group.usernameRaw, ...tags.map(t => t.label)];
   for (const i of group.indices) {
     const it = items[i];
     parts.push(it.name);
@@ -55,8 +76,10 @@ export function setVault(vaultData) {
   state.vaultData = vaultData;
   state.items = Array.isArray(vaultData?.items) ? vaultData.items : [];
   state.duplicateGroups = computeDuplicateGroups(state.items);
-  state.groupSearchText = state.duplicateGroups.map(g => searchTextFor(state.items, g));
   state.groupConcerns = state.duplicateGroups.map(g => mergeConcerns(g.indices.map(i => state.items[i])));
+  state.groupSearchText = state.duplicateGroups.map((g, gi) =>
+    searchTextFor(state.items, g, groupTags(g, state.groupConcerns[gi]))
+  );
   state.filterText = "";
   resetMarks();
   notify();
@@ -80,7 +103,12 @@ export function setFilterText(text) {
 }
 
 export function isGroupVisible(s, groupIndex) {
-  return !s.filterText || s.groupSearchText[groupIndex].includes(s.filterText);
+  if (!s.filterText) return true;
+  // a plain substring search for "check" would also match sites like check24.de
+  if (s.filterText === TAGGED_FILTER) {
+    return groupTags(s.duplicateGroups[groupIndex], s.groupConcerns[groupIndex]).length > 0;
+  }
+  return s.groupSearchText[groupIndex].includes(s.filterText);
 }
 
 export function setShowPreviews(show) {
@@ -251,25 +279,38 @@ export function toggleSelectAll() {
 // merge all leaves both alone, the user has to merge those one by one
 // it also leaves entries queued for deletion deleted
 export function mergeAllAction(s) {
-  const targets = s.duplicateGroups.flatMap((g, gi) =>
-    isGroupVisible(s, gi) && g.matchedBy === "uri" && !s.groupConcerns[gi].length
-      ? g.indices.filter(i => !s.itemsToDelete.has(i))
-      : []
-  );
+  let groups = 0;
+  let skipped = 0;
+  const targets = s.duplicateGroups.flatMap((g, gi) => {
+    if (!isGroupVisible(s, gi)) return [];
+    if (groupTags(g, s.groupConcerns[gi]).length) {
+      skipped++;
+      return [];
+    }
+    // like the group button, a group needs two entries left to merge
+    const rest = g.indices.filter(i => !s.itemsToDelete.has(i));
+    if (rest.length < 2) return [];
+    groups++;
+    return rest;
+  });
   const all = allIn(s.itemsToMerge, targets);
   return {
     targets,
+    groups,
+    skipped,
     mark: !all,
     disabled: targets.length === 0,
     label: `${all ? "Unmark" : "Merge"} ${scopeWord(s)} untagged groups`,
   };
 }
 
+// returns what it did, so the page can say how many tagged groups were left for the user
 export function toggleMergeAll() {
-  const { targets, mark, disabled } = mergeAllAction(state);
-  if (disabled) return;
-  setMarks("merge", targets, mark);
+  const action = mergeAllAction(state);
+  if (action.disabled) return null;
+  setMarks("merge", action.targets, action.mark);
   notify();
+  return action;
 }
 
 export function deleteSelectedAction(s) {

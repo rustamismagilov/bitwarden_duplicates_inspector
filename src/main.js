@@ -244,7 +244,16 @@ fileInput.addEventListener("change", handleFileChange);
 downloadBtn.addEventListener("click", handleDownload);
 deleteSelectedBtn.addEventListener("click", toggleDeleteSelected);
 selectAllGroupsBtn.addEventListener("click", toggleSelectAll);
-mergeAllGroupsBtn.addEventListener("click", toggleMergeAll);
+mergeAllGroupsBtn.addEventListener("click", () => {
+  const action = toggleMergeAll();
+  if (!action) return;
+  if (action.mark && action.skipped) {
+    const left = action.skipped === 1 ? "1 tagged group was" : `${action.skipped} tagged groups were`;
+    setStatus(`Marked ${action.groups} ${action.groups === 1 ? "group" : "groups"} for merge. ${left} left for you to check, type "check" in the filter to see them.`);
+  } else {
+    setStatus("");
+  }
+});
 
 attachDelegatedListener(groupsEl);
 

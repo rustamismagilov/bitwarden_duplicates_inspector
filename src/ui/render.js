@@ -1,6 +1,6 @@
 import { renderItemRow, escapeHtml } from "./components.js";
 import { resolveGroupEntries, mergeSelection } from "../core/merge.js";
-import { groupAction, isGroupVisible, selectAllAction, mergeAllAction, deleteSelectedAction } from "../state.js";
+import { groupAction, groupTags, isGroupVisible, selectAllAction, mergeAllAction, deleteSelectedAction } from "../state.js";
 
 // the group table and its preview share their columns
 const COLUMN_COUNT = 5;
@@ -96,26 +96,21 @@ function renderGlobalButton(btn, action) {
   btn.disabled = action.disabled;
 }
 
+// what each tag that asks for a look means, shown on hover
+const TAG_TITLES = {
+  passkeys: "These entries hold different passkeys. A Bitwarden login only uses one, so a merge keeps the passkeys of the oldest entry that has any and lists the others in notes, without their keys.",
+  "match rules": "These entries use different Bitwarden match rules (host with port, starts with, exact or regular expression). People set those to tell separate accounts on one server apart, so check before merging.",
+  collections: "These entries are in different collections. A merge puts the result in all of them, so everyone with access to any of those collections sees everything that was merged in.",
+  email: "Some entries have no URL for this site, so they were grouped by their email domain. Check that they are the same account before merging.",
+  name: "Some entries have no URL for this site, so they were grouped by their entry name. Check that they are the same account before merging.",
+};
+
 // the tags under a group heading: why to check it, and what is queued
 function groupTagsHtml(state, groupIndex, { count, selectedCount, mergedInGroup, deletedInGroup }) {
   const g = state.duplicateGroups[groupIndex];
-  const tags = [];
-
-  const concerns = state.groupConcerns[groupIndex];
-  if (concerns.includes("passkeys")) {
-    tags.push(`<span class="tag tag-weak" title="These entries hold different passkeys. A Bitwarden login only uses one, so a merge keeps the passkeys of the oldest entry that has any and lists the others in notes, without their keys.">different passkeys</span>`);
-  }
-  if (concerns.includes("match rules")) {
-    tags.push(`<span class="tag tag-weak" title="These entries use different Bitwarden match rules (host with port, starts with, exact or regular expression). People set those to tell separate accounts on one server apart, so check before merging.">different match rules</span>`);
-  }
-  if (concerns.includes("collections")) {
-    tags.push(`<span class="tag tag-weak" title="These entries are in different collections. A merge puts the result in all of them, so everyone with access to any of those collections sees everything that was merged in.">different collections</span>`);
-  }
-
-  if (g.matchedBy !== "uri") {
-    const how = g.matchedBy === "email" ? "email domain" : "entry name";
-    tags.push(`<span class="tag tag-weak" title="Some entries have no URL for this site, so they were grouped by their ${how}. Check that they are the same account before merging.">matched by ${how}</span>`);
-  }
+  const tags = groupTags(g, state.groupConcerns[groupIndex]).map(({ key, label }) =>
+    `<span class="tag tag-weak" title="${escapeHtml(TAG_TITLES[key])}">${escapeHtml(label)}</span>`
+  );
 
   if (selectedCount > 0) {
     tags.push(`<span class="tag tag-selected">${selectedCount === count ? "all selected" : `${selectedCount} selected`}</span>`);

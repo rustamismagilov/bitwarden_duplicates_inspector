@@ -301,7 +301,8 @@ describe("global buttons", () => {
     toggleSelected(3);
     applyGroupAction(1, "delete");
     toggleMergeAll();
-    expect(sorted(getState().itemsToMerge)).toEqual([0, 1, 2, 4]);
+    // b.com has one entry left, so there is nothing to merge it with
+    expect(sorted(getState().itemsToMerge)).toEqual([0, 1, 2]);
     expect(sorted(getState().itemsToDelete)).toEqual([3]);
     expect(mergeAllAction(getState()).label).toBe("Unmark all untagged groups");
     toggleMergeAll();
@@ -362,6 +363,38 @@ describe("global buttons", () => {
     expect(sorted(s.itemsToMerge)).toEqual([0, 1]);
     applyGroupAction(2, "merge");
     expect(sorted(s.itemsToMerge)).toEqual([0, 1, 2, 3]);
+  });
+
+  it("finds tagged groups by their tag text or by check, and counts the ones merge all skips", () => {
+    setVault({
+      encrypted: false, folders: [],
+      items: [
+        login("a1", "u", "https://a.com"),
+        login("a2", "u", "https://a.com"),
+        { id: "forum", type: 1, name: "Forum", login: { username: "me@gmail.com", uris: [] } },
+        { id: "shop", type: 1, name: "Shop", login: { username: "me@gmail.com", uris: [] } },
+        login("c1", "u", "https://check24.de/checkout"),
+        login("c2", "u", "https://check24.de/checkout")
+      ]
+    });
+    const visibleFor = text => {
+      setFilterText(text);
+      return getState().duplicateGroups.filter((g, gi) => isGroupVisible(getState(), gi)).map(g => g.site);
+    };
+    expect(visibleFor("check")).toEqual(["gmail.com"]);
+    expect(visibleFor("check24")).toEqual(["check24.de"]);
+    expect(visibleFor("email domain")).toEqual(["gmail.com"]);
+    setFilterText("");
+    expect(toggleMergeAll()).toMatchObject({ groups: 2, skipped: 1, mark: true });
+  });
+
+  it("does not count a group with fewer than two entries left as merged", () => {
+    toggleSelected(0);
+    toggleSelected(1);
+    applyGroupAction(0, "delete");
+    const result = toggleMergeAll();
+    expect(result).toMatchObject({ groups: 1 });
+    expect(sorted(getState().itemsToMerge)).toEqual([3, 4]);
   });
 
   it("leaves groups with merge concerns out of merge all", () => {
