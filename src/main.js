@@ -231,5 +231,6 @@ attachDelegatedListener(groupsEl);
 
 subscribe((state) => renderUI(state, refs));
 
-// first paint, nothing is loaded yet
-renderUI(getState(), refs);
+// a browser can bring the checkbox back ticked after a reload or back, so start from what it shows
+// setShowPreviews also paints the page for the first time
+setShowPreviews(previewToggle.checked);

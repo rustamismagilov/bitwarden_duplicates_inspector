@@ -37,7 +37,7 @@
 
         <div class="controls-row-right">
           <label class="toggle-wrapper">
-            <input type="checkbox" id="previewToggle" />
+            <input type="checkbox" id="previewToggle" autocomplete="off" />
             Enable result previews
           </label>
 
@@ -60,7 +60,9 @@
       </div>
 
       <div id="searchWrapper">
-        <input type="text" id="filterInput" aria-label="Filter duplicate groups" placeholder="Filter by site, name, URL or username..." />
+        <!-- no spellcheck, so typed site names and usernames never go to a cloud spellchecker -->
+        <input type="text" id="filterInput" aria-label="Filter duplicate groups" placeholder="Filter by site, name, URL or username..."
+               spellcheck="false" autocomplete="off" autocapitalize="off" />
         <button id="clearSearchBtn" type="button" aria-label="Clear filter">&times;</button>
       </div>
     </div>
