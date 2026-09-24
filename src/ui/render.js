@@ -235,11 +235,33 @@ function restoreViewState(el, { open, focus }) {
 let renderedItems = null;
 let renderedGroups = [];
 
+// a group's markup only depends on the preview switch and the marks on its own entries
+// the rest (entries, tags, dates) is fixed for a loaded vault, so the markup is reused until those change
+let groupCache = [];
+
+function groupSignature(state, g) {
+  let sig = state.showPreviews ? "p" : "-";
+  for (const i of g.indices) {
+    sig += (state.selectedItems.has(i) ? "s" : "-") + (state.itemsToMerge.has(i) ? "m" : "-") + (state.itemsToDelete.has(i) ? "d" : "-");
+  }
+  return sig;
+}
+
+function groupMarkup(state, groupIndex) {
+  const sig = groupSignature(state, state.duplicateGroups[groupIndex]);
+  const cached = groupCache[groupIndex];
+  if (cached && cached.sig === sig) return cached.html;
+  const html = renderGroupMarkup(state, groupIndex);
+  groupCache[groupIndex] = { sig, html };
+  return html;
+}
+
 export function renderUI(state, refs) {
   renderSummary(state, refs);
   refs.downloadBtn.disabled = !state.items.length;
 
-  const markup = state.duplicateGroups.map((g, gi) => renderGroupMarkup(state, gi));
+  if (renderedItems !== state.items) groupCache = [];
+  const markup = state.duplicateGroups.map((g, gi) => groupMarkup(state, gi));
   const groupEls = refs.groupsEl.children;
   const sameList = renderedItems === state.items &&
     renderedGroups.length === markup.length &&
