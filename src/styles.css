@@ -20,8 +20,11 @@
   --row-merged-bg: rgba(37, 99, 235, 0.15);
   --row-deleted-bg: rgba(220, 38, 38, 0.15);
   --row-last-left-bg: rgba(16, 185, 129, 0.35);
-  --warning: #b45309;
-  --kept: #047857;
+  /* small tag text needs 4.5:1 against the card, so the light theme uses darker shades */
+  --warning: #92400e;
+  --kept: #065f46;
+  --danger-text: #b91c1c;
+  --muted-text: #4b5563;
 }
 
 body.theme-dark {
@@ -48,6 +51,8 @@ body.theme-dark {
   --row-last-left-bg: rgba(16, 185, 129, 0.2);
   --warning: #fbbf24;
   --kept: #34d399;
+  --danger-text: #ef4444;
+  --muted-text: #9ca3af;
 }
 
 body {
@@ -343,7 +348,7 @@ body.theme-dark #themeToggleBtn .icon-moon {
 }
 
 
-.meta-line .count { opacity: 0.8; }
+
 
 .group-actions {
   display: inline-flex;
@@ -373,8 +378,8 @@ body.theme-dark #themeToggleBtn .icon-moon {
 }
 
 .tag-deleted {
-  border-color: var(--danger);
-  color: var(--danger);
+  border-color: var(--danger-text);
+  color: var(--danger-text);
   background: rgba(220, 38, 38, 0.08);
 }
 
@@ -481,7 +486,8 @@ th { word-break: normal; }
 
 .summary-right { text-align: right; }
 
-.text-muted { color: var(--muted); }
+/* small muted text needs a darker grey than --muted to stay readable on the page background */
+.text-muted { color: var(--muted-text); }
 .col-name   { width: 20%; }
 .col-dates  { width: 20%; }
 .col-uris   { width: 27%; }
@@ -586,4 +592,58 @@ input[type="checkbox"]:checked::after { display: block; }
   }
   .controls-row-right { justify-content: flex-start; }
   th, td { font-size: 0.75rem; }
+
+  /* narrow columns would split pills and badges mid-word */
+  .tag, .badge { white-space: nowrap; word-break: normal; }
+  .badge-id { white-space: normal; word-break: break-all; }
+
+  /* let the theme button scroll away with the title instead of floating over the list */
+  #themeToggleBtn { position: absolute; }
+  h1 { padding-inline: 44px; }
+}
+
+/* five columns do not fit a phone, so each entry becomes a small card with labelled lines */
+@media (max-width: 600px) {
+  .group table,
+  .group tbody,
+  .group tr,
+  .group td {
+    display: block;
+    width: auto;
+  }
+  .group thead { display: none; }
+  .group tr {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-top: 6px;
+    padding: 4px 8px;
+  }
+  .group td {
+    border: none;
+    padding: 2px 0;
+    text-align: left;
+  }
+  .group td.col-uris::before,
+  .group td.col-notes::before {
+    display: block;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .group td.col-uris::before { content: "URIs"; }
+  .group td.col-notes::before { content: "Notes"; }
+  .group td.col-dates div { display: inline-block; margin-right: 10px; }
+}
+
+/* bigger checkboxes where a finger does the clicking */
+@media (pointer: coarse) {
+  input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+  }
+  input[type="checkbox"]::after {
+    left: 7px;
+    top: 3px;
+    width: 7px;
+    height: 12px;
+  }
 }
