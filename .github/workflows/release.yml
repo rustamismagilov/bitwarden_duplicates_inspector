@@ -14,6 +14,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # the whole history and tags, so the release notes can list the commits since the last tag
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -39,11 +42,27 @@ jobs:
       - name: Build
         run: npm run build
 
+      # commit subjects here are written for people, so they make the release notes
+      # version bumps are left out, whether written by hand or made by npm version ("0.0.4")
+      - name: Write release notes
+        run: |
+          prev=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)
+          range="$GITHUB_REF_NAME"
+          if [ -n "$prev" ]; then range="$prev..$GITHUB_REF_NAME"; fi
+          changes=$(git log --no-merges --format='- %s' "$range" | grep -Ev '^- (Bumped version|v?[0-9]+\.[0-9]+\.[0-9]+$)' || true)
+          if [ -n "$changes" ]; then
+            printf '## Changes\n\n%s\n' "$changes" > dist/release-notes.md
+          else
+            : > dist/release-notes.md
+          fi
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
         with:
           name: dist
-          path: dist/index.html
+          path: |
+            dist/index.html
+            dist/release-notes.md
           retention-days: 7
 
   publish:
@@ -63,4 +82,5 @@ jobs:
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           files: dist/index.html
+          body_path: dist/release-notes.md
           generate_release_notes: true

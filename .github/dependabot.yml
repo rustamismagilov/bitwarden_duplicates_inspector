@@ -1,15 +1,26 @@
 version: 2
 updates:
+  # a week's wait lets a hijacked release get caught before it reaches the build
+  # security updates are not held back by the cooldown
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     groups:
       dev-dependencies:
         patterns:
           - '*'
 
+  # one pull request for all action updates, they all touch the same two workflow files
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - '*'
