@@ -105,6 +105,9 @@ function groupTagsHtml(state, groupIndex, { count, selectedCount, mergedInGroup,
   if (concerns.includes("passkeys")) {
     tags.push(`<span class="tag tag-weak" title="These entries hold different passkeys. A Bitwarden login only uses one, so a merge keeps the passkeys of the oldest entry that has any and lists the others in notes, without their keys.">different passkeys</span>`);
   }
+  if (concerns.includes("match rules")) {
+    tags.push(`<span class="tag tag-weak" title="These entries use different Bitwarden match rules (host with port, starts with, exact or regular expression). People set those to tell separate accounts on one server apart, so check before merging.">different match rules</span>`);
+  }
   if (concerns.includes("collections")) {
     tags.push(`<span class="tag tag-weak" title="These entries are in different collections. A merge puts the result in all of them, so everyone with access to any of those collections sees everything that was merged in.">different collections</span>`);
   }

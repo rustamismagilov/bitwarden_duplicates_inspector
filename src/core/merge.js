@@ -1,3 +1,5 @@
+import { parseHostPort } from "./dedup.js";
+
 // two uris are the same when both the match rule and the address agree
 function uriKey(u) {
   return JSON.stringify([u.match ?? null, u.uri ?? ""]);
@@ -188,13 +190,39 @@ export function mergeSameAccountGroup(groupItems) {
 // reasons to look at a group before merging it, beyond the usual password and notes handling
 // "passkeys": entries hold different passkeys and a merge keeps only one entry's
 // "collections": entries sit in different collections and a merge puts the result in all of them
+// "match rules": entries carry different host, starts with, exact or regex rules
+//   people set those to tell accounts on one server apart by port or path
 export function mergeConcerns(groupItems) {
   const concerns = [];
   const oldestFirst = [...groupItems].sort((a, b) => entryTime(a) - entryTime(b));
   if (splitPasskeys(oldestFirst).dropped.length) concerns.push("passkeys");
   const collectionSets = new Set(groupItems.map(it => JSON.stringify(asArray(it.collectionIds).sort())));
   if (collectionSets.size > 1) concerns.push("collections");
+  const ruledUris = new Set(groupItems.map(it => JSON.stringify(
+    asArray(it.login?.uris).filter(u => u.match >= 1 && u.match <= 4).map(ruleKey).sort()
+  )));
+  if (ruledUris.size > 1) concerns.push("match rules");
   return concerns;
+}
+
+// the part of a ruled uri bitwarden actually matches on
+// so two spellings of the same rule, like a different path under a host rule, do not count as different
+function ruleKey(u) {
+  const raw = String(u.uri ?? "");
+  if (u.match === 1) {
+    const hostPort = parseHostPort(raw);
+    return hostPort ? `1 ${hostPort.host}${hostPort.port ? ":" + hostPort.port : ""}` : `1 ${raw}`;
+  }
+  if (u.match === 2 || u.match === 3) {
+    try {
+      // URL lowercases the host and writes unicode hosts in punycode, the path stays as it is
+      const url = new URL(raw);
+      return `${u.match} ${url.protocol}//${url.host}${url.pathname}${url.search}`;
+    } catch {
+      return `${u.match} ${raw}`;
+    }
+  }
+  return `${u.match} ${raw}`;
 }
 
 // the entries of a group a queued merge takes in, and the index of the one it keeps

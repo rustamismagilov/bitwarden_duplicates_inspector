@@ -366,6 +366,16 @@ describe("global buttons", () => {
     expect(sorted(s.itemsToMerge)).toEqual([0, 1]);
   });
 
+  it("leaves groups told apart by match rules out of merge all", () => {
+    const ruled = (id, path) => ({
+      id, type: 1, name: id, creationDate: "2020-01-01",
+      login: { username: "admin", uris: [{ match: 2, uri: `https://home.example.com/${path}/` }] }
+    });
+    setVault({ encrypted: false, folders: [], items: [ruled("nextcloud", "nextcloud"), ruled("grafana", "grafana")] });
+    expect(getState().groupConcerns).toEqual([["match rules"]]);
+    expect(mergeAllAction(getState()).disabled).toBe(true);
+  });
+
   it("disables the buttons when there is nothing to act on", () => {
     clearVault();
     const s = getState();

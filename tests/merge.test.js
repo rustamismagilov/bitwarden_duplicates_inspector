@@ -370,6 +370,60 @@ describe("mergeConcerns", () => {
     expect(merged.notes).toBe("Passkeys dropped by the merge, register them again if you still need them:\nx.com");
   });
 
+  it("flags entries told apart by different match rules", () => {
+    const withUri = (id, date, match, uri) => ({ id, type: 1, creationDate: date, login: { username: "admin", uris: [{ match, uri }] } });
+    expect(mergeConcerns([
+      withUri("a", "2019-01-01", 2, "https://home.example.com/nextcloud/"),
+      withUri("b", "2020-01-01", 2, "https://home.example.com/grafana/")
+    ])).toEqual(["match rules"]);
+    expect(mergeConcerns([
+      withUri("a", "2019-01-01", 1, "https://nas.example.com:5001"),
+      withUri("b", "2020-01-01", null, "https://nas.example.com:9443")
+    ])).toEqual(["match rules"]);
+  });
+
+  it("does not flag duplicates that share their match rules or use the default", () => {
+    const withUri = (id, date, match, uri) => ({ id, type: 1, creationDate: date, login: { username: "u", uris: [{ match, uri }] } });
+    expect(mergeConcerns([
+      withUri("a", "2019-01-01", 3, "https://x.com/login"),
+      withUri("b", "2020-01-01", 3, "https://x.com/login")
+    ])).toEqual([]);
+    expect(mergeConcerns([
+      withUri("a", "2019-01-01", null, "https://x.com/a"),
+      withUri("b", "2020-01-01", 0, "https://x.com/b")
+    ])).toEqual([]);
+    // "never" is no rule that tells accounts apart
+    expect(mergeConcerns([
+      withUri("a", "2019-01-01", 5, "https://x.com/a"),
+      withUri("b", "2020-01-01", 5, "https://x.com/b")
+    ])).toEqual([]);
+  });
+
+  it("flags different exact and regular expression rules", () => {
+    const withUri = (id, date, match, uri) => ({ id, type: 1, creationDate: date, login: { username: "u", uris: [{ match, uri }] } });
+    expect(mergeConcerns([
+      withUri("a", "2019-01-01", 3, "https://x.com/admin/login"),
+      withUri("b", "2020-01-01", 3, "https://x.com/shop/login")
+    ])).toEqual(["match rules"]);
+    expect(mergeConcerns([
+      withUri("a", "2019-01-01", 4, "^https://x\\.com/a/.*"),
+      withUri("b", "2020-01-01", 4, "^https://x\\.com/b/.*")
+    ])).toEqual(["match rules"]);
+  });
+
+  it("does not flag the same rule written differently", () => {
+    const withUri = (id, date, match, uri) => ({ id, type: 1, creationDate: date, login: { username: "u", uris: [{ match, uri }] } });
+    // a host rule ignores the path, and hosts ignore case and unicode spelling
+    expect(mergeConcerns([
+      withUri("a", "2019-01-01", 1, "https://NAS.example.com:5001/login"),
+      withUri("b", "2020-01-01", 1, "https://nas.example.com:5001/")
+    ])).toEqual([]);
+    expect(mergeConcerns([
+      withUri("a", "2019-01-01", 2, "https://münchen.de/app/"),
+      withUri("b", "2020-01-01", 2, "https://XN--MNCHEN-3YA.de/app/")
+    ])).toEqual([]);
+  });
+
   it("flags entries that sit in different collections", () => {
     expect(mergeConcerns([
       login("a", "2019-01-01", { organizationId: "o", collectionIds: ["c1"] }),
