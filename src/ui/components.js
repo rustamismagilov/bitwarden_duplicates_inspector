@@ -18,6 +18,7 @@ function formatDate(str) {
 
 // the collapsed notes line is readable without a click, so it stops before the passwords
 // and totp secrets a merge writes into notes, the open note still shows everything
+// it does show the start of the user's own notes, whatever they wrote there
 function notesSummary(notes) {
   const cut = Math.min(...SECRET_NOTE_SECTIONS.map(h => notes.indexOf(h)).filter(i => i !== -1));
   if (!Number.isFinite(cut)) return notes.length > 120 ? notes.slice(0, 120) + "…" : notes;
@@ -54,9 +55,10 @@ export function renderItemRow(state, it, idx, { preview = false, previewStatus =
   if (!notes) {
     notesHtml = `<span class="note-empty">-</span>`;
   } else {
+    // the pre stays empty here, the full note is only put in while the note is open, see syncNote
     notesHtml =
       `<details data-key="${escapeHtml(key)}"><summary>${escapeHtml(notesSummary(notes))}</summary>` +
-      `<pre>${escapeHtml(notes)}</pre></details>`;
+      `<pre></pre></details>`;
   }
 
   const favTag = it.favorite ? `<span class="tag tag-fav">★ favorite</span>` : "";

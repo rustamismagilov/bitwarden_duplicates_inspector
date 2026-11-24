@@ -1,4 +1,5 @@
-import { toggleSelected, toggleSelectGroup, applyGroupAction } from "../state.js";
+import { getState, toggleSelected, toggleSelectGroup, applyGroupAction } from "../state.js";
+import { syncNote } from "./render.js";
 
 const actions = {
   "toggle-select": data => toggleSelected(Number(data.index)),
@@ -21,4 +22,10 @@ export function attachDelegatedListener(container) {
     if (!trigger || !container.contains(trigger)) return;
     actions[trigger.dataset.action]?.(trigger.dataset);
   });
+
+  // opening a note puts its text in, closing takes it out again
+  // toggle does not bubble, so it is caught on the way down
+  container.addEventListener("toggle", e => {
+    if (e.target.matches?.("details[data-key]")) syncNote(getState(), e.target);
+  }, true);
 }

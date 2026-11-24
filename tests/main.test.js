@@ -229,6 +229,46 @@ describe("the list", () => {
     expect(document.activeElement).not.toBe(button);
   });
 
+  // happy-dom may not fire toggle when .open is set from script, so the tests send it themselves
+  // it does not bubble in a browser either, the page listens for it on the way down
+  const setOpen = (details, open) => {
+    details.open = open;
+    details.dispatchEvent(new Event("toggle"));
+  };
+
+  it("puts a note's text into the page only while the note is open", async () => {
+    await pickFile(vaultText([login("a1", "2020-01-01", { notes: "CANARY first note" }), login("a2", "2021-01-01")]), "lazy.json");
+    const details = document.querySelector('details[data-key="item-0"]');
+    expect(details.querySelector("pre").textContent).toBe("");
+    setOpen(details, true);
+    expect(details.querySelector("pre").textContent).toBe("CANARY first note");
+    setOpen(details, false);
+    expect(details.querySelector("pre").textContent).toBe("");
+  });
+
+  it("keeps merged passwords out of the page until the preview note is opened", async () => {
+    await pickFile(vaultText([login("a1", "2020-01-01"), login("a2", "2021-01-01")]), "secrets.json");
+    document.querySelector('[data-action="merge-group"]').click();
+    const toggle = $("previewToggle");
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change"));
+    // the merge writes the other entry's password into the kept entry's notes
+    expect($("groups").innerHTML).not.toContain("pw-a2");
+    const details = document.querySelector(".preview-container details");
+    setOpen(details, true);
+    expect(details.querySelector("pre").textContent).toContain("pw-a2");
+    // a re-render of the group keeps the note open and fills it again
+    document.querySelector('input[data-action="toggle-select"][data-index="0"]').click();
+    const again = document.querySelector(".preview-container details");
+    expect(again).not.toBe(details);
+    expect(again.open).toBe(true);
+    expect(again.querySelector("pre").textContent).toContain("pw-a2");
+    setOpen(again, false);
+    expect($("groups").innerHTML).not.toContain("pw-a2");
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change"));
+  });
+
   it("follows the preview checkbox", () => {
     document.querySelector('[data-action="merge-group"]').click();
     const toggle = $("previewToggle");

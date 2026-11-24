@@ -45,16 +45,15 @@ describe("notesSummary with merged secrets", () => {
     expect(notesSummary(historyOnly.notes)).toBe("(merged passwords hidden, open to show)");
   });
 
-  it("keeps the secret out of the row's summary line but in the opened note", () => {
+  it("renders a row without the secret anywhere, the note body is filled in only when it is opened", () => {
     const merged = mergeSameAccountGroup([
       { id: "a", type: 1, creationDate: "2019-01-01", notes: "own note", login: { username: "u", password: "old", uris: [] } },
       { id: "b", type: 1, creationDate: "2020-01-01", login: { username: "u", password: "secret-new", uris: [] } }
     ]);
     const html = renderItemRow(emptyState(), merged, 0);
-    const summary = html.match(/<summary>([\s\S]*?)<\/summary>/)[1];
-    const opened = html.match(/<pre>([\s\S]*?)<\/pre>/)[1];
-    expect(summary).not.toContain("secret-new");
-    expect(opened).toContain("secret-new");
+    expect(html).toContain("<summary>own note (merged passwords hidden, open to show)</summary>");
+    expect(html).toContain("<pre></pre>");
+    expect(html).not.toContain("secret-new");
   });
 });
 

@@ -1,5 +1,5 @@
 import { renderItemRow, escapeHtml } from "./components.js";
-import { resolveGroupEntries, mergeSelection } from "../core/merge.js";
+import { resolveGroupEntries, mergeSelection, asText } from "../core/merge.js";
 import { groupAction, groupTags, isGroupVisible, selectAllAction, mergeAllAction, deleteSelectedAction } from "../state.js";
 
 // the group table and its preview share their columns
@@ -208,6 +208,24 @@ export function applyFilter(state, refs) {
   renderControls(state, refs);
 }
 
+// the note a row's key stands for: "item-<index>" in the main table, "preview-<group>-<index>" in a preview
+function noteText(state, key) {
+  const [kind, first, second] = String(key).split("-");
+  if (kind === "item") return asText(state.items[Number(first)]?.notes);
+  const g = state.duplicateGroups[Number(first)];
+  if (kind !== "preview" || !g) return "";
+  const entry = resolveGroupEntries(state.items, g, state.itemsToMerge, state.itemsToDelete)
+    .find(e => e.index === Number(second));
+  return asText(entry?.item.notes);
+}
+
+// the full text of a note is only in the page while the note is open
+// a closed note keeps passwords written into it away from find-in-page, translation and anything else that reads the page
+export function syncNote(state, details) {
+  const pre = details.querySelector("pre");
+  if (pre) pre.textContent = details.open ? noteText(state, details.dataset.key) : "";
+}
+
 // replacing a group closes its open notes and drops keyboard focus
 // so remember both before and put them back after
 function captureViewState(el) {
@@ -219,10 +237,13 @@ function captureViewState(el) {
   return { open, focus };
 }
 
-function restoreViewState(el, { open, focus }) {
+function restoreViewState(state, el, { open, focus }) {
   const openKeys = new Set(open);
   el.querySelectorAll("details[data-key]").forEach(d => {
-    if (openKeys.has(d.dataset.key)) d.open = true;
+    if (!openKeys.has(d.dataset.key)) return;
+    d.open = true;
+    // fill it right away, the toggle event only arrives later
+    syncNote(state, d);
   });
   if (!focus) return;
   const match = [...el.querySelectorAll(`[data-action="${focus.action}"]`)].find(candidate =>
@@ -276,7 +297,7 @@ export function renderUI(state, refs) {
     // one big swap is faster than hundreds of small ones after a bulk action
     const viewState = captureViewState(refs.groupsEl);
     refs.groupsEl.innerHTML = markup.join("");
-    restoreViewState(refs.groupsEl, viewState);
+    restoreViewState(state, refs.groupsEl, viewState);
   } else {
     for (const gi of changed) {
       const oldEl = groupEls[gi];
@@ -285,7 +306,7 @@ export function renderUI(state, refs) {
       template.innerHTML = markup[gi];
       const newEl = template.content.firstElementChild;
       oldEl.replaceWith(newEl);
-      restoreViewState(newEl, viewState);
+      restoreViewState(state, newEl, viewState);
     }
   }
 
