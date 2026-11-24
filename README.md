@@ -1,6 +1,6 @@
 # Bitwarden Duplicates Inspector
 
-Find and merge duplicate entries in your Bitwarden vault. Runs entirely in your browser. The JSON you load never leaves the page.
+Find and merge duplicate entries in your Bitwarden vault. Runs entirely in your browser. The page works offline and makes no network requests.
 
 > [!NOTE]
 > **Browser-only**, no installation required. Tested on Chrome, Firefox, and Edge. You need a .json (plaintext) export of your Bitwarden vault.
@@ -104,6 +104,7 @@ Merging the whole group leaves entries you marked for deletion deleted, and the 
 
 ### Top controls
 
+- **Close file** takes the loaded vault off the page without closing the tab.
 - **Filter** narrows the list by site, username, entry name, URL or tag.
 - **Select all entries in all groups** ticks every entry in the groups you can see.
 - **Merge all untagged groups** marks every visible group for merge, except the ones with a [tag](#group-tags) and the entries you marked for deletion. It then says how many tagged groups it left for you.
@@ -111,7 +112,16 @@ Merging the whole group leaves entries you marked for deletion deleted, and the 
 - **Enable result previews** shows what each group turns into once the queued merges and deletions are applied. The preview uses the same code as the download.
 - The sun and moon button switches between light and dark. Until you use it, the page follows your system theme.
 
-If you try to load another file or close the tab while there are merges or deletions you have not downloaded yet, the page asks first.
+If you try to load another file, close the file or close the tab while there are merges or deletions you have not downloaded yet, the page asks first.
+
+## Privacy
+
+The page reads your export inside the browser tab. It makes no network requests and stores nothing except your light or dark choice.
+
+Two things are up to you:
+
+- Browser extensions that can read pages can read this one too. A private or guest window runs without them.
+- The export and every `_merged_` download are plaintext files. Delete them when you are done and empty the recycle bin.
 
 ## Known issues
 
@@ -146,6 +156,12 @@ shasum -a 256 dist/index.html
 
 The "Source code" zip of a release builds the same file too.
 
+You can also verify that a release is signed, with the [GitHub CLI](https://cli.github.com/):
+
+```sh
+gh attestation verify index.html --repo rustamismagilov/bitwarden_duplicates_inspector
+```
+
 ## Building from source
 
 You need Node.js 22.12 or newer.
@@ -162,7 +178,7 @@ The build writes a single self-contained `dist/index.html` with all JavaScript a
 
 Source lives under `src/`: pure logic in `src/core/`, state in `src/state.js`, and the UI in `src/ui/`. The page template is `src/template.html`.
 
-To release, bump the version with `npm version patch` (or `minor`), then push the commit and the tag. The release workflow checks that the tag matches `package.json`, runs the tests, builds the page and attaches it to a GitHub release.
+To release, bump the version with `npm version patch` (or `minor`), then push the commit and the tag. The release workflow checks that the tag matches `package.json`, runs the tests, builds the page, signs it and attaches it to a GitHub release.
 
 ## License
 
