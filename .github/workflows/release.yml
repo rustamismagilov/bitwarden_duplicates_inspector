@@ -9,14 +9,13 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          # the whole history and tags, so the release notes can list the commits since the last tag
-          fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -34,13 +33,36 @@ jobs:
           fi
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Run tests
         run: npm test
 
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # the whole history and tags, so the release notes can list the commits since the last tag
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
       - name: Build
         run: npm run build
+
+      - name: Show the page's checksum
+        run: sha256sum dist/index.html | tee -a "$GITHUB_STEP_SUMMARY"
 
       # commit subjects here are written for people, so they make the release notes
       # version bumps are left out, whether written by hand or made by npm version ("0.0.4")
