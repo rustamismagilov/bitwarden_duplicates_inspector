@@ -636,6 +636,29 @@ describe("buildExport", () => {
     expect(result.folders).toEqual([]);
   });
 
+  it("writes a __proto__ key from the file back as plain data, at every level", () => {
+    // JSON.parse makes "__proto__" an ordinary key, an object literal would not
+    const vault = JSON.parse(`{
+      "encrypted": false, "__proto__": { "top": 1 }, "folders": [],
+      "items": [
+        { "id": "a", "type": 1, "name": "x", "creationDate": "2019-01-01", "__proto__": { "itemLevel": 1 },
+          "login": { "username": "u", "password": "p", "__proto__": { "loginLevel": 1 }, "uris": [{ "match": null, "uri": "https://a.com" }] } },
+        { "id": "b", "type": 1, "name": "x", "creationDate": "2020-01-01",
+          "login": { "username": "u", "password": "q", "uris": [{ "match": null, "uri": "https://a.com" }] } }
+      ]
+    }`);
+    const result = buildExport({
+      vaultData: vault, items: vault.items, duplicateGroups: computeDuplicateGroups(vault.items),
+      itemsToMerge: new Set([0, 1]), itemsToDelete: new Set()
+    });
+    const written = JSON.parse(JSON.stringify(result));
+    expect(Object.hasOwn(written, "__proto__")).toBe(true);
+    expect(Object.hasOwn(written.items[0], "__proto__")).toBe(true);
+    expect(Object.hasOwn(written.items[0].login, "__proto__")).toBe(true);
+    expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+    expect({}.top).toBeUndefined();
+  });
+
   it("passes the real Bitwarden sample through unchanged when nothing is selected", () => {
     const vault = structuredClone(bitwardenSample);
     const result = buildExport({

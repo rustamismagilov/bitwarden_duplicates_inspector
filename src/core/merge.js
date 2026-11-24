@@ -284,7 +284,6 @@ export function buildExport({ vaultData, items, duplicateGroups, itemsToMerge, i
     resultItems.push(replaced.get(i) ?? it);
   });
 
-  return Object.assign({}, vaultData, {
-    items: resultItems
-  });
+  // spread copies every key as plain data, even one named "__proto__"
+  return { ...vaultData, items: resultItems };
 }
