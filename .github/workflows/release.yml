@@ -92,12 +92,22 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # the next two are what signing the attestation needs
+      id-token: write
+      attestations: write
     steps:
       - name: Download build artifact
         uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist
+
+      # a signed record that this file was built by this workflow from this commit
+      # it comes before the release, so a release never goes out without one
+      - name: Attest the page
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/index.html
 
       # a tag that is pushed again gets a fresh release
       - name: Create GitHub Release
