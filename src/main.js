@@ -25,6 +25,7 @@ const dismissNextSteps = document.getElementById("dismissNextSteps");
 const savedFileName = document.getElementById("savedFileName");
 const fileInput = document.getElementById("fileInput");
 const fileLabelText = document.getElementById("fileLabelText");
+const closeFileBtn = document.getElementById("closeFileBtn");
 const filterInput = document.getElementById("filterInput");
 const searchWrapper = document.getElementById("searchWrapper");
 const clearSearchBtn = document.getElementById("clearSearchBtn");
@@ -144,14 +145,28 @@ function handleDownload() {
   }
 }
 
-function resetToEmpty(errorMessage) {
+// back to the page as it opens, with nothing of the vault left in it
+function resetToEmpty(message, isError = false) {
   clearVault();
 
+  filterInput.value = "";
+  savedFileName.textContent = "";
   fileLabelText.textContent = "Choose file";
+  closeFileBtn.hidden = true;
   searchWrapper.style.display = "none";
   intro.hidden = false;
   nextSteps.hidden = true;
-  setStatus(errorMessage, true);
+  setStatus(message, isError);
+}
+
+function handleCloseFile() {
+  if (hasUnsavedChanges(getState()) &&
+      !confirm("Close this file? The merges and deletions queued for it have not been downloaded and will be lost.")) {
+    return;
+  }
+  resetToEmpty("File closed.");
+  // the button is gone now, so hand the keyboard to the file picker
+  fileInput.focus();
 }
 
 function loadFile(file) {
@@ -180,11 +195,12 @@ function loadFile(file) {
       setVault(data, file.name);
     } catch (err) {
       // the vault is already swapped in at this point, so start clean rather than show half of it
-      resetToEmpty("Error: that file could not be shown. " + err.message);
+      resetToEmpty("Error: that file could not be shown. " + err.message, true);
       return;
     }
 
     fileLabelText.textContent = "Choose another file";
+    closeFileBtn.hidden = false;
     setStatus(`Loaded ${file.name}.`);
     searchWrapper.style.display = "block";
     intro.hidden = true;
@@ -246,6 +262,7 @@ dismissNextSteps.addEventListener("click", () => {
 });
 
 fileInput.addEventListener("change", handleFileChange);
+closeFileBtn.addEventListener("click", handleCloseFile);
 downloadBtn.addEventListener("click", handleDownload);
 deleteSelectedBtn.addEventListener("click", toggleDeleteSelected);
 selectAllGroupsBtn.addEventListener("click", toggleSelectAll);

@@ -47,6 +47,12 @@ describe("built page", () => {
     expect(html).toContain('<meta name="google" content="notranslate"');
   });
 
+  it("keeps hidden elements hidden whatever class they carry", () => {
+    // .btn sets display, which would show the hidden "Close file" button without this rule
+    const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+    expect(css).toMatch(/\[hidden\]\s*\{\s*display:\s*none\s*!important/);
+  });
+
   it("does not load anything from outside the file", () => {
     expect(html).not.toMatch(/<script[^>]+src=|<link[^>]+href=/i);
     // remote css would come in through @import or url(), which only matter inside the style block

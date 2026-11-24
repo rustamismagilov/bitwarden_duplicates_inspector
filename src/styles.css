@@ -55,6 +55,9 @@ body.theme-dark {
   --muted-text: #9ca3af;
 }
 
+/* a class that sets display, like .btn, would otherwise show a hidden element */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   padding: 0;

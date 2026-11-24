@@ -115,6 +115,70 @@ describe("loading a file", () => {
   });
 });
 
+describe("closing the file", () => {
+  it("shows the button only while a file is loaded", () => {
+    expect($("closeFileBtn").hidden).toBe(false);
+    $("closeFileBtn").click();
+    expect($("closeFileBtn").hidden).toBe(true);
+  });
+
+  it("leaves nothing of the vault in the page or in the state", async () => {
+    const secret = id => login(id, "2020-01-01", {
+      name: "CANARY-name", notes: "CANARY-note",
+      login: { username: "CANARY-user", password: "CANARY-pass", totp: "CANARY-totp", uris: [{ match: null, uri: "https://CANARY-site.com" }] }
+    });
+    await pickFile(vaultText([secret("CANARY-1"), secret("CANARY-2")]), "CANARY-file.json");
+    // put as much of it on screen as the page ever shows
+    const toggle = $("previewToggle");
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change"));
+    document.querySelectorAll("details[data-key]").forEach(d => {
+      d.open = true;
+      d.dispatchEvent(new Event("toggle"));
+    });
+    $("filterInput").value = "CANARY";
+    $("filterInput").dispatchEvent(new Event("input"));
+    $("downloadBtn").click();
+    expect(document.body.innerHTML).toContain("CANARY-note");
+    expect($("savedFileName").textContent).toContain("CANARY-file");
+
+    $("closeFileBtn").click();
+
+    expect(document.body.innerHTML).not.toContain("CANARY");
+    expect($("filterInput").value).toBe("");
+    const s = getState();
+    expect(s.vaultData).toBe(null);
+    expect(JSON.stringify(s, (k, v) => (v instanceof Set ? [...v] : v))).not.toContain("CANARY");
+    expect(document.querySelectorAll("section.group")).toHaveLength(0);
+    expect($("status").textContent).toBe("File closed.");
+    expect($("fileLabelText").textContent).toBe("Choose file");
+    expect($("intro").hidden).toBe(false);
+    expect($("nextSteps").hidden).toBe(true);
+    expect($("searchWrapper").style.display).toBe("none");
+    expect($("downloadBtn").disabled).toBe(true);
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change"));
+  });
+
+  it("asks before dropping queued changes, and keeps the file when the answer is no", () => {
+    document.querySelector('[data-action="merge-group"]').click();
+    window.confirm = vi.fn(() => false);
+    $("closeFileBtn").click();
+    expect(window.confirm.mock.calls[0][0]).toContain("Close this file?");
+    expect(getState().itemsToMerge.size).toBe(2);
+    expect($("closeFileBtn").hidden).toBe(false);
+
+    window.confirm = vi.fn(() => true);
+    $("closeFileBtn").click();
+    expect(getState().items).toHaveLength(0);
+  });
+
+  it("does not ask when nothing is queued", () => {
+    $("closeFileBtn").click();
+    expect(window.confirm).not.toHaveBeenCalled();
+  });
+});
+
 describe("downloading", () => {
   it("writes the merged vault under a name based on the loaded file and shows the next steps", async () => {
     document.querySelector('[data-action="merge-group"]').click();
