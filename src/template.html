@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" translate="no">
 <head>
   <meta charset="UTF-8" />
-  <!-- blocks fetching anything from the network, the page only runs what is inlined here -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src __CSP_SCRIPT_HASH__; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'" />
+  <!-- blocks fetching anything from the network, the page only runs the script and styles inlined here -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src __CSP_SCRIPT_HASH__; style-src __CSP_STYLE_HASH__; form-action 'none'; base-uri 'none'" />
+  <!-- vault names and notes are often in another language, keep the browser from offering to send them to a translator -->
+  <meta name="google" content="notranslate" />
   <title>Bitwarden Duplicates Inspector</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>/*__INLINE_CSS__*/</style>

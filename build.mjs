@@ -17,8 +17,9 @@ export async function buildPage() {
   });
 
   const js = result.outputFiles[0].text;
-  const css = readFileSync("src/styles.css", "utf8");
-  let html = readFileSync("src/template.html", "utf8");
+  // a browser reads crlf as lf before it hashes an inline block, so a windows checkout must not change the hashes
+  const css = readFileSync("src/styles.css", "utf8").replace(/\r\n/g, "\n");
+  let html = readFileSync("src/template.html", "utf8").replace(/\r\n/g, "\n");
 
   // a missing or doubled marker would ship a page without styles or code, so fail loudly
   // the callback keeps $ sequences in the css or js from being read as replacement patterns
@@ -32,9 +33,14 @@ export async function buildPage() {
   const unsafe = js.match(/<\/script|<script|<!--/i);
   if (unsafe) throw new Error(`the bundled script contains ${unsafe[0]} and cannot be inlined`);
 
-  // the content security policy allows this exact script and nothing else
-  const scriptHash = createHash("sha256").update(js, "utf8").digest("base64");
-  fill("__CSP_SCRIPT_HASH__", `'sha256-${scriptHash}'`);
+  if (/<\/style/i.test(css)) throw new Error("src/styles.css contains </style and cannot be inlined");
+  if (js.includes("\r") || css.includes("\r")) throw new Error("a carriage return in the script or styles would break their hashes");
+
+  // the content security policy allows this exact script and this exact style block, and nothing else
+  // so markup that slips in can bring neither a script, a style attribute nor a style element
+  const sha256 = text => `'sha256-${createHash("sha256").update(text, "utf8").digest("base64")}'`;
+  fill("__CSP_SCRIPT_HASH__", sha256(js));
+  fill("__CSP_STYLE_HASH__", sha256(css));
   fill("__VERSION__", version);
   fill("/*__INLINE_CSS__*/", css);
   fill("/*__INLINE_JS__*/", js);
