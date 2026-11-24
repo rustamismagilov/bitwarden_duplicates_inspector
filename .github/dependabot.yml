@@ -1,7 +1,6 @@
 version: 2
 updates:
-  # a week's wait lets a hijacked release get caught before it reaches the build
-  # security updates are not held back by the cooldown
+  # a week's wait gives a hijacked release time to be caught before it gets here
   - package-ecosystem: npm
     directory: /
     schedule:

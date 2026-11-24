@@ -3,6 +3,13 @@ node_modules/
 dist/
 coverage/
 
+# vault exports and merged downloads, in case one gets saved into this folder
+# only the top folder, so nothing under src or tests is caught by accident
+/bitwarden_*export*.json
+/bitwarden_*export*.zip
+/bitwarden_*export*.csv
+/*_merged_*.json
+
 # logs and local env files
 *.log
 .env
